@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Product Detail</title>
+    <link href="/admin/css/styles.css" rel="stylesheet" />
+  </head>
+  <body class="sb-nav-fixed">
+    <%- include('../layout/header') %>
+    <div id="layoutSidenav">
+      <%- include('../layout/sidenav') %>
+      <div id="layoutSidenav_content">
+        <main>
+          <div class="container-fluid px-4">
+            <h1 class="mt-4">Product Detail</h1>
+            <ol class="breadcrumb mb-4">
+              <li class="breadcrumb-item"><a href="/admin">Dashboard</a></li>
+              <li class="breadcrumb-item"><a href="/admin/product">Products</a></li>
+              <li class="breadcrumb-item active">Detail</li>
+            </ol>
+
+            <div class="row">
+              <div class="col-md-8">
+                <form action="/admin/update-product" method="POST" enctype="multipart/form-data">
+                  <input type="hidden" name="id" value="<%= product.id %>" />
+                  <div class="mb-3">
+                    <label class="form-label">Name</label>
+                    <input name="name" class="form-control" value="<%= product.name %>" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Price</label>
+                    <input name="price" type="number" class="form-control" value="<%= product.price %>" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label">Detail Description</label>
+                    <textarea name="detailDesc" class="form-control"><%= product.detailDesc || '' %></textarea>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label">Quantity</label>
+                      <input name="quantity" type="number" class="form-control" value="<%= product.quantity %>" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label">Factory</label>
+                      <select name="factory" class="form-select">
+                        <% if (typeof factoryOptions !== 'undefined') { %>
+                          <% factoryOptions.forEach(function(opt){ %>
+                            <option value="<%= opt.value %>" <%= product.factory === opt.value ? 'selected' : '' %>><%= opt.name %></option>
+                          <% }) %>
+                        <% } else { %>
+                          <option value="<%= product.factory %>"><%= product.factory %></option>
+                        <% } %>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Image</label>
+                    <div>
+                      <% if (product.image) { %>
+                        <img src="/uploads/avatars/<%= product.image %>" alt="product image" style="max-width:200px;" />
+                      <% } else { %>
+                        <div class="text-muted">No image</div>
+                      <% } %>
+                    </div>
+                    <input name="image" class="form-control mt-2" type="file" />
+                  </div>
+
+                  <div class="mb-3">
+                    <button class="btn btn-warning" type="submit">Update</button>
+                    <a class="btn btn-secondary" href="/admin/product">Back</a>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </main>
+        <%- include('../layout/footer') %>
+      </div>
+    </div>
+    <script src="/admin/js/scripts.js"></script>
+  </body>
+</html>

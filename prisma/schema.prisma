@@ -1,0 +1,142 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String   @id
+  sid       String   @unique
+  data      String  @db.MediumText
+  expiresAt   DateTime
+}
+
+
+model Cart {
+  id Int @id @default(autoincrement())
+  sum Int
+
+  user User @relation(fields: [userId], references: [id])
+  userId Int @unique
+
+  cartDetails CartDetail[]
+
+  order Order?
+
+  @@map("carts")
+}
+
+model CartDetail {
+  id Int @id @default(autoincrement())
+  price Int
+  quantity Int
+
+  cart Cart @relation(fields: [cartId], references: [id])
+  cartId Int
+
+  product Product @relation(fields: [productId], references: [id])
+  productId Int
+
+
+  @@map("cart_detail")
+}
+
+
+
+model User {
+  id              Int      @id @default(autoincrement())
+  username        String   @unique @db.VarChar(255)
+  password        String   @db.VarChar(255)
+  fullName        String?   @db.VarChar(255)
+  address         String?   @db.VarChar(255)
+  phone           String?   @db.VarChar(255)
+  accountType     String   @db.VarChar(50)
+  avatar          String?   @db.VarChar(255)
+
+  // Nhiều Users thuộc về 1 Role
+  role   Role    @relation(fields: [roleId], references: [id])
+  roleId Int
+
+  cart Cart?
+
+  oders Order[]
+
+  @@map("users")
+
+}
+
+model Role {
+  id              Int      @id @default(autoincrement())
+  name            String   @unique @db.VarChar(100)
+  description     String   @db.VarChar(255)
+
+  // 1 Role có nhiều Users
+  users User[]
+
+  @@map("roles")
+
+}
+
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  totalPrice      Int  
+  receiverAddress String @db.VarChar(255)
+  receiverName    String @db.VarChar(255)
+  receiverPhone   String @db.VarChar(255)
+  status          String @default("PENDING")
+  paymentMethod   String 
+  paymentStatus   String 
+  paymentRef      String?
+  user User @relation(fields: [userId], references: [id])
+  userId Int
+
+  cart Cart? @relation(fields: [cartId], references: [id])
+  cartId Int? @unique
+
+  ordersDetails OrderDetail[]
+
+  @@map("orders")
+}
+
+model Product {
+  id              Int      @id @default(autoincrement())
+  name            String   @db.VarChar(255)
+  price           Int   
+  image           String?   @db.VarChar(255)
+  // Allow longer product descriptions than 255 chars
+  detailDesc      String?   @db.Text
+  shortDesc       String?   @db.VarChar(255)
+  quantity        Int?      @default(0)
+  sold            String?   @db.VarChar(255)
+  factory         String?   @db.VarChar(255)
+  target          String?   @db.VarChar(255)
+
+  cartDetails CartDetail[]
+  orderDetails OrderDetail[]
+  @@map("products")
+
+}
+
+model OrderDetail {
+  id Int @id @default(autoincrement())
+  price Int
+  quantity Int
+
+  order Order @relation(fields: [orderId], references: [id])
+  orderId Int
+
+  product Product @relation(fields: [productId], references: [id])
+  productId Int
+
+  @@map("order_detail")
+}
