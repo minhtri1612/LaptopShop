@@ -115,9 +115,6 @@ pipeline {
         }
         
         stage('Deploy to EC2') {
-            when {
-                branch 'main'
-            }
             steps {
                 sh '''
                     SSH_KEY="/var/lib/jenkins/.ssh/laptopshop-ec2-key"
@@ -155,9 +152,6 @@ ENDSSH
         }
         
         stage('Health Check') {
-            when {
-                branch 'main'
-            }
             steps {
                 sh '''
                     echo "Waiting for app to start..."
