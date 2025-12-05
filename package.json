@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui",
     "build": "tsc && tsc-alias -p tsconfig.json && cp -r src/views dist/views",
     "start": "node dist/app.js",
     "dev": "nodemon",
@@ -51,12 +54,16 @@
     "@types/node": "22.10.7",
     "@types/passport": "1.0.17",
     "@types/passport-local": "1.0.38",
+    "@types/supertest": "^6.0.3",
+    "@vitest/coverage-istanbul": "^3.2.4",
     "nodemon": "3.1.9",
     "prisma": "6.3.0",
+    "supertest": "^7.1.4",
     "ts-node": "10.9.2",
     "ts-node-dev": "^2.0.0",
     "tsc-alias": "^1.8.10",
     "tsconfig-paths": "4.2.0",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "vitest": "^3.2.4"
   }
 }
