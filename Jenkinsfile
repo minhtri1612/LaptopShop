@@ -99,15 +99,16 @@ pipeline {
         stage('Package') {
             steps {
                 sh '''
-                    tar -czvf app.tar.gz \
+                    tar --exclude='node_modules/.cache' \
+                        --exclude='*.log' \
+                        -czvf app.tar.gz \
                         dist/ \
                         node_modules/ \
                         package.json \
                         package-lock.json \
                         prisma/ \
                         src/views/ \
-                        public/ \
-                        --exclude='node_modules/.cache'
+                        public/
                 '''
                 echo '✅ Package created'
             }
