@@ -126,6 +126,11 @@ pipeline {
                             set -e
                             echo "🚀 Starting deployment..."
                             
+                            # Backup .env file before stopping
+                            if [ -f "/home/ec2-user/app/.env" ]; then
+                                cp /home/ec2-user/app/.env /tmp/.env.backup
+                            fi
+                            
                             pm2 stop laptopshop || true
                             
                             if [ -d "/home/ec2-user/app" ]; then
@@ -135,6 +140,12 @@ pipeline {
                             mkdir -p /home/ec2-user/app
                             tar -xzvf /tmp/app.tar.gz -C /home/ec2-user/app
                             cd /home/ec2-user/app
+                            
+                            # Restore .env file
+                            if [ -f "/tmp/.env.backup" ]; then
+                                cp /tmp/.env.backup /home/ec2-user/app/.env
+                                echo "✅ .env restored"
+                            fi
                             
                             npx prisma migrate deploy || true
                             
