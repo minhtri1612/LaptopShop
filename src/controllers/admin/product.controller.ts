@@ -3,6 +3,7 @@ import { ProductSchema, TProductSchema } from '../../validation/product.schema';
 import { createProduct, handleDeleteProduct, getProductId, updateProduct, getProductList } from 'services/admin/product.service';
 import { TOTAL_ITEM_PER_PAGE } from 'config/constant';
 import { prisma } from 'config/client';
+import { uploadMulterFile } from 'services/s3.service';
 
 // Render create product page
 const getAdminCreateProductPage = async (req: Request, res: Response) => {
@@ -17,8 +18,19 @@ const postAdminCreateProduct = async (req: Request, res: Response) => {
         console.error('Validation error in postAdminCreateProduct:', validate.error);
         return res.status(400).send('Invalid product data');
     }
-    const image = req.file ? req.file.filename : '';
-    await createProduct(name, +price, detailDesc, shortDesc, +quantity, factory, target, image || '');
+    
+    let image = '';
+    if (req.file) {
+        try {
+            const result = await uploadMulterFile(req.file, 'products');
+            image = result.url;
+        } catch (error) {
+            console.error('S3 upload error:', error);
+            image = req.file.filename; // Fallback to local
+        }
+    }
+    
+    await createProduct(name, +price, detailDesc, shortDesc, +quantity, factory, target, image);
     return res.redirect('/admin/product');
 };
 
@@ -65,9 +77,20 @@ const getViewProduct = async (req: Request, res: Response) => {
 // Update product
 const postUpdateProduct = async (req: Request, res: Response) => {
     const { id, name, price, detailDesc, shortDesc, quantity, factory, target } = req.body as any;
-    const image = req.file ? req.file.filename : null;
     const numId = Number(id);
     if (Number.isNaN(numId)) return res.redirect('/admin/product');
+    
+    let image: string | null = null;
+    if (req.file) {
+        try {
+            const result = await uploadMulterFile(req.file, 'products');
+            image = result.url;
+        } catch (error) {
+            console.error('S3 upload error:', error);
+            image = req.file.filename; // Fallback to local
+        }
+    }
+    
     await updateProduct(
         numId,
         name,

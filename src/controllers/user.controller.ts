@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getAllUser, handleCreateUser, handleDeleteUser, getUserById, updateUserById, getAllRoles } from '../services/user.service';
 import { getProducts, countTotalProductClientPages } from 'services/client/item.service';
 import { productFilterService, countFilteredProducts } from 'services/client/product.filter';
+import { uploadMulterFile } from 'services/s3.service';
 
 const getHomePage = async (req: Request, res: Response) => {
     const { page } = req.query;
@@ -75,7 +76,19 @@ const getUserPage = async (req: Request, res: Response) => {
 const postUserPage = async (req: Request, res: Response) => {
     const { fullName, username, phone, role, address, password } = req.body;
     const file = req.file;
-    const avatar = file ? file.filename : '';
+    let avatar = '';
+    
+    // Upload to S3 if file exists
+    if (file) {
+        try {
+            const result = await uploadMulterFile(file, 'avatars');
+            avatar = result.url;
+        } catch (error) {
+            console.error('S3 upload error:', error);
+            avatar = file.filename; // Fallback to local
+        }
+    }
+    
     await handleCreateUser(fullName, username, address, phone, avatar, role, password);
     return res.redirect('/admin/user');
 };
@@ -109,7 +122,19 @@ const getViewUser = async (req: Request, res: Response) => {
 const postUpdateUser = async (req: Request, res: Response) => {
     const { id, fullName, username, phone, role, address } = req.body;
     const file = req.file;
-    const avatar = file?.filename ?? undefined;
+    let avatar: string | undefined = undefined;
+    
+    // Upload to S3 if file exists
+    if (file) {
+        try {
+            const result = await uploadMulterFile(file, 'avatars');
+            avatar = result.url;
+        } catch (error) {
+            console.error('S3 upload error:', error);
+            avatar = file.filename; // Fallback to local
+        }
+    }
+    
     await updateUserById(id, fullName, phone, role, address, avatar);
     return res.redirect('/admin/user');
 };

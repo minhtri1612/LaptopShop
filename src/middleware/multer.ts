@@ -4,13 +4,8 @@ import { v4 } from 'uuid';
 
 const fileUploadMiddleware = (fieldName: string, dir: string = 'images') => {
     return multer({
-        storage: multer.diskStorage({
-            destination: 'public/' + dir,
-            filename: (req, file, cb) => {
-                const extension = path.extname(file.originalname);
-                cb(null, v4() + extension);
-            }
-        }),
+        // Use memory storage for S3 uploads
+        storage: multer.memoryStorage(),
         limits: {
             fileSize: 1024 * 1024 * 3
         },

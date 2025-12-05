@@ -1,0 +1,138 @@
+# =============================================================================
+# Dependencies
+# =============================================================================
+node_modules/
+.pnp/
+.pnp.js
+
+# =============================================================================
+# Build Output
+# =============================================================================
+dist/
+build/
+*.js.map
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# =============================================================================
+# SSH Keys (NEVER commit private keys!)
+# =============================================================================
+*.pem
+*.key
+terraform/keys/*
+!terraform/keys/*.pub
+!terraform/keys/.gitkeep
+
+# =============================================================================
+# Terraform
+# =============================================================================
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Exclude all .tfvars files, which are likely to contain sensitive data
+*.tfvars
+*.tfvars.json
+
+# Keep the example file
+!terraform.tfvars.example
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ignore CLI configuration files
+.terraformrc
+terraform.rc
+
+# Terraform lock file (optional - some prefer to commit this)
+# .terraform.lock.hcl
+
+# Terraform plan files
+*.tfplan
+*.plan
+
+# =============================================================================
+# IDE & Editor
+# =============================================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# =============================================================================
+# OS Generated
+# =============================================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============================================================================
+# Logs
+# =============================================================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# =============================================================================
+# Testing
+# =============================================================================
+coverage/
+.nyc_output/
+
+# =============================================================================
+# Uploads & Media (keep structure, ignore content)
+# =============================================================================
+public/image/product/*
+!public/image/product/.gitkeep
+public/images/product/*
+!public/images/product/.gitkeep
+
+# =============================================================================
+# Database
+# =============================================================================
+*.sql
+!init.sql
+
+# =============================================================================
+# Docker
+# =============================================================================
+# Ignore docker volumes data if stored locally
+mysql_data/
+
+# =============================================================================
+# Misc
+# =============================================================================
+*.tgz
+*.zip
+*.tar.gz
+.cache/
+tmp/
+temp/

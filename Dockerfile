@@ -1,8 +1,8 @@
-# Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+# Use Node.js 18 slim (Debian-based) for better compatibility
+FROM node:18-slim
 
-# Install dependencies for native modules
-RUN apk add --no-cache libc6-compat
+# Install dependencies for native modules and OpenSSL for Prisma
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -22,8 +22,8 @@ RUN npx prisma generate
 RUN npm run build
 
 # Don't run as root
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
+RUN groupadd --system --gid 1001 nodejs
+RUN useradd --system --uid 1001 -g nodejs nodejs
 
 # Change ownership of the app directory
 RUN chown -R nodejs:nodejs /app
