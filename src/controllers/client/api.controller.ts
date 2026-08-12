@@ -5,20 +5,25 @@ import { RegisterSchema } from "../../validation/register.schema";
 import { registerNewUser } from "services/client/auth.service";
 
 const postAddProductToCartAPI = async (req: Request, res: Response) => {
-    const { quantity, productId } = req.body;
+    // Legacy endpoint — prefer POST /api/cart/items
+    const quantity = Number(req.body.quantity);
+    const productId = Number(req.body.productId);
     const user = req.user;
 
-    await addProductToCart(+quantity, +productId, user as Express.User);
+    if (!user || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(productId) || productId <= 0) {
+        return res.status(400).json({ message: "productId and positive quantity are required" });
+    }
 
-    // Get updated cart sum after adding product
+    await addProductToCart(quantity, productId, user as Express.User);
+
     const cart = await getCartByUserId(user.id);
     const newSum = cart?.sum ?? 0;
 
-    return res.status(200).json({ 
-        message: "Product added to cart successfully", 
-        data: newSum 
+    return res.status(200).json({
+        message: "Product added to cart successfully",
+        data: newSum,
     });
-}
+};
 
 
 const getAllUsersAPI = async (req: Request, res: Response) => {

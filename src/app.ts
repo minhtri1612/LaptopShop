@@ -15,11 +15,13 @@ import { PrismaSessionStore } from '@quixo3/prisma-session-store';
 import { PrismaClient } from '@prisma/client';
 import apiRoutes from './routes/api';
 import cors from 'cors';
+import { requireEnv } from './config/secrets';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const sessionSecret = requireEnv('SESSION_SECRET');
 
 // Enable CORS for all routes
 app.use(cors());
@@ -39,8 +41,7 @@ app.use('/images/product', express.static('public/image/product'));
 
 // config session
 app.use(session({
-    // session secret - set via env var in production
-    secret: process.env.SESSION_SECRET || 'change_this_in_production',
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {

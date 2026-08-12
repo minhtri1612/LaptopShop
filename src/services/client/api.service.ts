@@ -2,14 +2,20 @@ import {prisma} from 'config/client';
 import { comparePassword } from 'services/user.service';
 import jwt from 'jsonwebtoken';
 import "dotenv/config";
+import { requireEnv } from 'src/config/secrets';
 
 const handleGetAllUser = async () => {
-    return await prisma.user.findMany();
+    return await prisma.user.findMany({
+        omit: { password: true },
+        include: { role: true },
+    });
 }
 
 const handleGetUserById = async (id: number) => {
     return await prisma.user.findUnique({
         where: { id },
+        omit: { password: true },
+        include: { role: true },
     });
 }
 
@@ -52,9 +58,10 @@ const handleUserLoginn = async (username: string, password: string) => {
         accountType: user.accountType,
         avatar: user.avatar
     }
-    const expiresIn:any =process.env.JWT_EXPIRES_IN;
+    const expiresIn: any = process.env.JWT_EXPIRES_IN || '1d';
+    const secret = requireEnv('JWT_SECRET');
 
-    const access_token = jwt.sign(payload, process.env.JWT_SECRET, { 
+    const access_token = jwt.sign(payload, secret, { 
         expiresIn: expiresIn
     });
 

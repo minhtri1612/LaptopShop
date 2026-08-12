@@ -6,6 +6,9 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=mysql://root:Minhchau3112...@db:3306/nodejspro
+      - SESSION_SECRET=${SESSION_SECRET:-change-me-session-secret}
+      - JWT_SECRET=${JWT_SECRET:-change-me-jwt-secret}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1d}
     depends_on:
       db:
         condition: service_healthy

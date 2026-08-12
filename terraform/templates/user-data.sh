@@ -43,9 +43,17 @@ AWS_S3_BUCKET_NAME=${s3_bucket_name}
 NODE_ENV=production
 PORT=${app_port}
 
-# Session Secret (generate a secure random string)
-SESSION_SECRET=$(openssl rand -hex 32)
+# Auth secrets (replace with openssl rand -hex 32 values after first boot if needed)
+SESSION_SECRET=change-me-session-secret
+JWT_SECRET=change-me-jwt-secret
+JWT_EXPIRES_IN=1d
 EOF
+
+# Replace placeholder secrets with strong random values
+SESSION_VAL=$(openssl rand -hex 32)
+JWT_VAL=$(openssl rand -hex 32)
+sed -i "s/change-me-session-secret/$SESSION_VAL/" /home/ec2-user/app/.env
+sed -i "s/change-me-jwt-secret/$JWT_VAL/" /home/ec2-user/app/.env
 
 chown ec2-user:ec2-user /home/ec2-user/app/.env
 chmod 600 /home/ec2-user/app/.env

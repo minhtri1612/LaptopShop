@@ -147,7 +147,7 @@ pipeline {
                                 echo "✅ .env restored"
                             fi
                             
-                            npx prisma migrate deploy || true
+                            npx prisma migrate deploy
                             
                             pm2 start dist/app.js --name laptopshop --update-env
                             pm2 save

@@ -20,7 +20,7 @@ const registerNewUser = async(
     const newPassword = await hashPassword(hashedPassword);
     
     const userRole = await prisma.role.findUnique({
-        where: { name: "user" }
+        where: { name: "USER" }
     });
 
 

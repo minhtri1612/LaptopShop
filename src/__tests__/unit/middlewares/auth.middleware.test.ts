@@ -1,150 +1,112 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response, NextFunction } from 'express';
+import { requireAuth, requireAdmin, isAdmin } from 'src/middleware/auth';
 import { mockUser, mockAdmin } from '../../fixtures/testData';
 
-// Mock modules
-vi.mock('@prisma/client', () => ({
-  PrismaClient: vi.fn(() => ({})),
-}));
-
-describe('Auth Middleware', () => {
+describe('Auth Middleware (API)', () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
   let mockNext: NextFunction;
 
   beforeEach(() => {
     mockReq = {
-      session: {} as any,
-      isAuthenticated: vi.fn(),
       user: undefined,
+      path: '/',
     };
     mockRes = {
       redirect: vi.fn(),
       status: vi.fn().mockReturnThis(),
       json: vi.fn().mockReturnThis(),
-      render: vi.fn(),
     };
     mockNext = vi.fn();
   });
 
-  describe('isAuthenticated', () => {
-    it('should call next() when user is authenticated', () => {
-      mockReq.isAuthenticated = vi.fn().mockReturnValue(true);
-      mockReq.user = mockUser;
+  describe('requireAuth', () => {
+    it('should call next() when req.user is set', () => {
+      mockReq.user = mockUser as Express.User;
 
-      // Simulate middleware behavior
-      if (mockReq.isAuthenticated && mockReq.isAuthenticated()) {
-        mockNext();
-      } else {
-        (mockRes.redirect as any)('/login');
-      }
+      requireAuth(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
-      expect(mockRes.redirect).not.toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should redirect to login when user is not authenticated', () => {
-      mockReq.isAuthenticated = vi.fn().mockReturnValue(false);
+    it('should return 401 JSON when req.user is missing', () => {
+      requireAuth(mockReq as Request, mockRes as Response, mockNext);
 
-      // Simulate middleware behavior
-      if (mockReq.isAuthenticated && mockReq.isAuthenticated()) {
-        mockNext();
-      } else {
-        (mockRes.redirect as any)('/login');
-      }
-
-      expect(mockRes.redirect).toHaveBeenCalledWith('/login');
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json).toHaveBeenCalledWith({ message: 'Unauthorized' });
       expect(mockNext).not.toHaveBeenCalled();
     });
   });
 
-  describe('isAdmin', () => {
-    it('should call next() when user is admin', () => {
-      mockReq.isAuthenticated = vi.fn().mockReturnValue(true);
-      mockReq.user = mockAdmin;
+  describe('requireAdmin', () => {
+    it('should call next() when user role is ADMIN', () => {
+      mockReq.user = mockAdmin as Express.User;
 
-      // Simulate middleware behavior
-      const user = mockReq.user as typeof mockAdmin;
-      if (mockReq.isAuthenticated && mockReq.isAuthenticated() && user?.role?.name === 'ADMIN') {
-        mockNext();
-      } else {
-        (mockRes.status as any)(403).json({ message: 'Forbidden' });
-      }
+      requireAdmin(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalled();
+      expect(mockRes.status).not.toHaveBeenCalled();
     });
 
-    it('should return 403 when user is not admin', () => {
-      mockReq.isAuthenticated = vi.fn().mockReturnValue(true);
-      mockReq.user = mockUser; // Regular user, not admin
+    it('should return 403 JSON when user is not admin', () => {
+      mockReq.user = mockUser as Express.User;
 
-      // Simulate middleware behavior
-      const user = mockReq.user as typeof mockUser;
-      if (mockReq.isAuthenticated && mockReq.isAuthenticated() && user?.role?.name === 'ADMIN') {
-        mockNext();
-      } else {
-        (mockRes.status as any)(403).json({ message: 'Forbidden' });
-      }
+      requireAdmin(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
+      expect(mockRes.json).toHaveBeenCalledWith({ message: 'Forbidden' });
       expect(mockNext).not.toHaveBeenCalled();
     });
 
-    it('should return 403 when user is not authenticated', () => {
-      mockReq.isAuthenticated = vi.fn().mockReturnValue(false);
-
-      // Simulate middleware behavior
-      if (mockReq.isAuthenticated && mockReq.isAuthenticated()) {
-        mockNext();
-      } else {
-        (mockRes.status as any)(403).json({ message: 'Forbidden' });
-      }
+    it('should return 403 JSON when user is missing', () => {
+      requireAdmin(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(403);
       expect(mockNext).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('isUser', () => {
-    it('should call next() when user role is USER', () => {
-      mockReq.isAuthenticated = vi.fn().mockReturnValue(true);
-      mockReq.user = mockUser;
-
-      // Simulate middleware behavior
-      const user = mockReq.user as typeof mockUser;
-      if (mockReq.isAuthenticated && mockReq.isAuthenticated() && user?.role?.name === 'USER') {
-        mockNext();
-      } else {
-        (mockRes.redirect as any)('/');
-      }
-
-      expect(mockNext).toHaveBeenCalled();
     });
   });
 });
 
-describe('Session Handling', () => {
-  it('should store user in session after login', () => {
-    const session: any = {};
-    
-    // Simulate login
-    session.userId = mockUser.id;
-    session.userEmail = mockUser.email;
+describe('Auth Middleware (Web isAdmin)', () => {
+  let mockReq: Partial<Request>;
+  let mockRes: Partial<Response>;
+  let mockNext: NextFunction;
 
-    expect(session.userId).toBe(1);
-    expect(session.userEmail).toBe('test@example.com');
+  beforeEach(() => {
+    mockReq = { path: '/admin', user: undefined };
+    mockRes = {
+      redirect: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+    mockNext = vi.fn();
   });
 
-  it('should clear session on logout', () => {
-    const session: any = {
-      userId: mockUser.id,
-      userEmail: mockUser.email,
-      destroy: vi.fn((callback) => callback()),
-    };
+  it('should call next() for admin on /admin path', () => {
+    mockReq.user = mockAdmin as Express.User;
 
-    // Simulate logout
-    session.destroy(() => {});
+    isAdmin(mockReq, mockRes, mockNext);
 
-    expect(session.destroy).toHaveBeenCalled();
+    expect(mockNext).toHaveBeenCalled();
+  });
+
+  it('should redirect to 403 page for non-admin on /admin path', () => {
+    mockReq.user = mockUser as Express.User;
+
+    isAdmin(mockReq, mockRes, mockNext);
+
+    expect(mockRes.redirect).toHaveBeenCalledWith('/status/403.ejs');
+    expect(mockNext).not.toHaveBeenCalled();
+  });
+
+  it('should bypass guard for non-admin paths', () => {
+    mockReq.path = '/cart';
+    mockReq.user = mockUser as Express.User;
+
+    isAdmin(mockReq, mockRes, mockNext);
+
+    expect(mockNext).toHaveBeenCalled();
   });
 });
