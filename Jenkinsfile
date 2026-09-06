@@ -17,12 +17,29 @@ pipeline {
         // Database
         DB_HOST = 'laptopshop-db.c986iw6k2ihl.ap-southeast-2.rds.amazonaws.com'
         DB_NAME = 'nodejspro'
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
+        SONAR_PROJECT_KEY = 'laptopshop'
+        SONAR_PROJECT_NAME = 'LaptopShop'
     }
     
     stages {
         stage('Checkout') {
             steps {
-                checkout scm
+                script {
+                    if (env.LOCAL_CI == 'true') {
+                        sh '''
+                            if [ -d /workspace ]; then
+                              find . -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+                              cp -a /workspace/. .
+                            else
+                              echo "LOCAL_CI is set but /workspace is missing; falling back to scm"
+                            fi
+                        '''
+                    } else {
+                        checkout scm
+                    }
+                }
                 echo '✅ Code checked out'
             }
         }
@@ -30,11 +47,16 @@ pipeline {
         stage('Setup Node.js') {
             steps {
                 sh '''
-                    export NVM_DIR="$HOME/.nvm"
-                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                    nvm use 18 || nvm install 18
-                    node --version
-                    npm --version
+                    if command -v node >/dev/null 2>&1; then
+                        node --version
+                        npm --version
+                    else
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        nvm use 18 || nvm install 18
+                        node --version
+                        npm --version
+                    fi
                 '''
             }
         }
@@ -42,8 +64,11 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 sh '''
-                    export NVM_DIR="$HOME/.nvm"
-                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                    if ! command -v node >/dev/null 2>&1; then
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        nvm use 18 || nvm install 18
+                    fi
                     npm ci --prefer-offline || npm install
                 '''
                 echo '✅ Dependencies installed'
@@ -55,8 +80,11 @@ pipeline {
                 stage('ESLint') {
                     steps {
                         sh '''
-                            export NVM_DIR="$HOME/.nvm"
-                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                            if ! command -v node >/dev/null 2>&1; then
+                                export NVM_DIR="$HOME/.nvm"
+                                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                                nvm use 18 || nvm install 18
+                            fi
                             npm run lint || true
                         '''
                     }
@@ -64,8 +92,12 @@ pipeline {
                 stage('TypeScript Check') {
                     steps {
                         sh '''
-                            export NVM_DIR="$HOME/.nvm"
-                            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                            if ! command -v node >/dev/null 2>&1; then
+                                export NVM_DIR="$HOME/.nvm"
+                                [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                                nvm use 18 || nvm install 18
+                            fi
+                            npx prisma generate
                             npx tsc --noEmit || true
                         '''
                     }
@@ -76,9 +108,12 @@ pipeline {
         stage('Run Tests') {
             steps {
                 sh '''
-                    export NVM_DIR="$HOME/.nvm"
-                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                    npm test || echo "No tests configured yet"
+                    if ! command -v node >/dev/null 2>&1; then
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        nvm use 18 || nvm install 18
+                    fi
+                    npm run test:coverage
                 '''
                 echo '✅ Tests complete'
             }
@@ -87,16 +122,76 @@ pipeline {
         stage('Build') {
             steps {
                 sh '''
-                    export NVM_DIR="$HOME/.nvm"
-                    [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                    npm run build
+                    if ! command -v node >/dev/null 2>&1; then
+                        export NVM_DIR="$HOME/.nvm"
+                        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                        nvm use 18 || nvm install 18
+                    fi
                     npx prisma generate
+                    npm run build
                 '''
                 echo '✅ Build complete'
             }
         }
+
+        stage('SonarQube Analysis') {
+            when {
+                environment name: 'LOCAL_CI', value: 'true'
+            }
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh """
+                        /opt/sonar-scanner/bin/sonar-scanner \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                        -Dsonar.projectName='${SONAR_PROJECT_NAME}' \
+                        -Dsonar.sources=src \
+                        -Dsonar.tests=src/__tests__ \
+                        -Dsonar.test.inclusions=src/__tests__/**/*.ts \
+                        -Dsonar.exclusions=**/node_modules/**,**/dist/**,**/coverage/**,**/public/**,**/*.pem,terraform/**,jenkins/**,src/views/** \
+                        -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \
+                        -Dsonar.coverage.exclusions=src/__tests__/**,src/views/**,src/types/** \
+                        -Dsonar.host.url=http://${env.SONAR_HOST_URL ?: 'sonarqube:9000'} \
+                        -Dsonar.token=${SONAR_TOKEN} \
+                        -Dsonar.sourceEncoding=UTF-8
+                    """
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            when {
+                environment name: 'LOCAL_CI', value: 'true'
+            }
+            steps {
+                sh '''
+                    BUILD_CONTEXT="${PROJECT_DIR:-.}"
+                    echo "Building Docker image laptopshop:${IMAGE_TAG} (context: ${BUILD_CONTEXT})"
+                    docker build -t "laptopshop:${IMAGE_TAG}" "${BUILD_CONTEXT}"
+                    docker tag "laptopshop:${IMAGE_TAG}" laptopshop:latest
+                    docker images | grep laptopshop
+                '''
+            }
+        }
+
+        stage('Trivy Security Scan') {
+            when {
+                environment name: 'LOCAL_CI', value: 'true'
+            }
+            steps {
+                sh '''
+                    IGNORE=""
+                    if [ -f .trivyignore ]; then
+                      IGNORE="--ignorefile .trivyignore"
+                    fi
+                    trivy image --severity CRITICAL,HIGH --ignore-unfixed --exit-code 1 $IGNORE "laptopshop:${IMAGE_TAG}"
+                '''
+            }
+        }
         
         stage('Package') {
+            when {
+                not { environment name: 'SKIP_AWS', value: 'true' }
+            }
             steps {
                 sh '''
                     tar --exclude='node_modules/.cache' \
@@ -115,6 +210,9 @@ pipeline {
         }
         
         stage('Deploy to EC2') {
+            when {
+                not { environment name: 'SKIP_AWS', value: 'true' }
+            }
             steps {
                 sh '''
                     SSH_KEY="/var/lib/jenkins/.ssh/laptopshop-ec2-key"
@@ -163,6 +261,9 @@ ENDSSH
         }
         
         stage('Health Check') {
+            when {
+                not { environment name: 'SKIP_AWS', value: 'true' }
+            }
             steps {
                 sh '''
                     echo "Waiting for app to start..."
@@ -183,10 +284,14 @@ ENDSSH
     
     post {
         always {
-            cleanWs()
+            script {
+                if (env.LOCAL_CI != 'true') {
+                    cleanWs()
+                }
+            }
         }
         success {
-            echo '🎉 Pipeline completed successfully! App: http://3.24.80.105:3000'
+            echo '🎉 Pipeline completed successfully!'
         }
         failure {
             echo '❌ Pipeline failed! Check logs for details.'

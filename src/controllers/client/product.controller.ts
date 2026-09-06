@@ -94,14 +94,10 @@ const postPlaceOrder = async (req: Request, res: Response) => {
     try {
         await handlerPlaceOrder(user.id, receiverName, receiverAddress, receiverPhone, +totalPrice);
         return res.redirect("/thanks");
-    }catch(error){
+    } catch(error) {
         console.log("check error here:", error.message);
         return res.redirect('/checkout');
     }
-
-
-
-    return res.redirect("/thanks");
 };
 
 const getThanksPage = async (req: Request, res: Response) => {

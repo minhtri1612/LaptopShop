@@ -52,16 +52,16 @@ const createAdminProductAPI = async (req: Request, res: Response) => {
     const { name, price, detailDesc, shortDesc, quantity, factory, target } = parsed.data;
     const image = typeof req.body.image === "string" ? req.body.image : "";
 
-    await createProduct(
+    await createProduct({
         name,
         price,
         detailDesc,
-        shortDesc ?? "",
+        shortDesc: shortDesc ?? "",
         quantity,
-        factory ?? "",
-        target ?? "",
-        image
-    );
+        factory: factory ?? "",
+        target: target ?? "",
+        imageUpload: image,
+    });
 
     return res.status(201).json({ message: "Product created successfully" });
 };
@@ -88,17 +88,17 @@ const updateAdminProductAPI = async (req: Request, res: Response) => {
             ? req.body.image
             : existing.image;
 
-    await updateProduct(
+    await updateProduct({
         id,
         name,
         price,
         detailDesc,
-        shortDesc ?? null,
+        shortDesc: shortDesc ?? null,
         quantity,
-        factory ?? null,
-        target ?? null,
-        image
-    );
+        factory: factory ?? null,
+        target: target ?? null,
+        imageUpload: image,
+    });
 
     return res.status(200).json({ message: "Product updated successfully" });
 };

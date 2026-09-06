@@ -9,11 +9,15 @@ export default defineConfig({
     exclude: ['node_modules', 'dist'],
     coverage: {
       provider: 'istanbul',
-      reporter: ['text', 'json', 'html'],
+      reportsDirectory: './coverage',
+      reporter: ['text', 'lcov', 'json'],
+      include: ['src/**/*.ts'],
       exclude: [
         'node_modules/',
         'dist/',
         'src/__tests__/',
+        'src/views/',
+        'src/types/',
       ],
     },
     testTimeout: 10000,

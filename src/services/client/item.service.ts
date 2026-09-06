@@ -1,5 +1,23 @@
 import { skip } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 import { prisma } from "config/client";
+
+async function assertCartItemInStock(
+    tx: Prisma.TransactionClient,
+    cartDetail: { productId: number; quantity: number }
+) {
+    const product = await tx.product.findUnique({
+        where: { id: cartDetail.productId }
+    });
+
+    if (!product) {
+        throw new Error(`Product with ID ${cartDetail.productId} does not exist.`);
+    }
+
+    if (product.quantity < cartDetail.quantity) {
+        throw new Error(`Product "${product.name}" only has ${product.quantity} in stock, but you requested ${cartDetail.quantity}.`);
+    }
+}
 
 const getProducts = async (page: number, pageSize: number) => {
     const skip = (page - 1) * pageSize;
@@ -193,20 +211,8 @@ const handlerPlaceOrder = async (
                 throw new Error("Cart not found");
             }
 
-            // Check product availability first
-            for (let i = 0; i < cart.cartDetails.length; i++) {
-                const cartDetail = cart.cartDetails[i];
-                const product = await tx.product.findUnique({
-                    where: { id: cartDetail.productId }
-                });
-
-                if (!product) {
-                    throw new Error(`Product with ID ${cartDetail.productId} does not exist.`);
-                }
-
-                if (product.quantity < cartDetail.quantity) {
-                    throw new Error(`Product "${product.name}" only has ${product.quantity} in stock, but you requested ${cartDetail.quantity}.`);
-                }
+            for (const cartDetail of cart.cartDetails) {
+                await assertCartItemInStock(tx, cartDetail);
             }
 
             // Create order details data

@@ -20,6 +20,7 @@ build/
 .env.development
 .env.production
 .env*.local
+.env.ci
 
 # =============================================================================
 # SSH Keys (NEVER commit private keys!)

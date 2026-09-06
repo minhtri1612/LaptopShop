@@ -30,7 +30,16 @@ const postAdminCreateProduct = async (req: Request, res: Response) => {
         }
     }
     
-    await createProduct(name, +price, detailDesc, shortDesc, +quantity, factory, target, image);
+    await createProduct({
+        name,
+        price: +price,
+        detailDesc,
+        shortDesc,
+        quantity: +quantity,
+        factory,
+        target,
+        imageUpload: image,
+    });
     return res.redirect('/admin/product');
 };
 
@@ -91,17 +100,17 @@ const postUpdateProduct = async (req: Request, res: Response) => {
         }
     }
     
-    await updateProduct(
-        numId,
+    await updateProduct({
+        id: numId,
         name,
-        Number(price),
+        price: Number(price),
         detailDesc,
-        shortDesc || null,
-        Number(quantity),
-        factory || null,
-        target || null,
-        image
-    );
+        shortDesc: shortDesc || null,
+        quantity: Number(quantity),
+        factory: factory || null,
+        target: target || null,
+        imageUpload: image,
+    });
     return res.redirect('/admin/product');
 };
 

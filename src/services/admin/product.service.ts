@@ -1,25 +1,40 @@
 import { prisma } from "config/client";
 import { TOTAL_ITEM_PER_PAGE } from "config/constant";
-const createProduct = async(
-    name: string,
-    price: number,
-    detailDesc: string,
-    shortDesc: string,
-    quantity: number,
-    factory: string,
-    target: string,
-    imageUpload: string
-) => {
+
+type CreateProductInput = {
+    name: string;
+    price: number;
+    detailDesc: string;
+    shortDesc: string;
+    quantity: number;
+    factory: string;
+    target: string;
+    imageUpload: string;
+};
+
+type UpdateProductInput = {
+    id: number;
+    name: string;
+    price: number;
+    detailDesc: string;
+    shortDesc: string | null;
+    quantity: number;
+    factory: string | null;
+    target: string | null;
+    imageUpload: string | null;
+};
+
+const createProduct = async (input: CreateProductInput) => {
     await prisma.product.create({
         data: {
-            name: name,
-            price: price,
-            detailDesc: detailDesc,
-            shortDesc: shortDesc,
-            quantity: quantity,
-            factory: factory,
-            target: target,
-            image: imageUpload
+            name: input.name,
+            price: input.price,
+            detailDesc: input.detailDesc,
+            shortDesc: input.shortDesc,
+            quantity: input.quantity,
+            factory: input.factory,
+            target: input.target,
+            image: input.imageUpload
         }
     });
 };
@@ -46,28 +61,18 @@ const  getProductId = async (id: number) => {
     });
 };
 
-const updateProduct = async (
-    id: number,
-    name: string,
-    price: number,
-    detailDesc: string,
-    shortDesc: string | null,
-    quantity: number,
-    factory: string | null,
-    target: string | null,
-    imageUpload: string | null
-) => {
+const updateProduct = async (input: UpdateProductInput) => {
     return prisma.product.update({
-        where: { id },
+        where: { id: input.id },
         data: {
-            name,
-            price,
-            detailDesc,
-            shortDesc,
-            quantity,
-            factory,
-            target,
-            image: imageUpload || undefined,
+            name: input.name,
+            price: input.price,
+            detailDesc: input.detailDesc,
+            shortDesc: input.shortDesc,
+            quantity: input.quantity,
+            factory: input.factory,
+            target: input.target,
+            image: input.imageUpload || undefined,
         },
     });
 };

@@ -120,7 +120,7 @@ const getViewUser = async (req: Request, res: Response) => {
 };
 
 const postUpdateUser = async (req: Request, res: Response) => {
-    const { id, fullName, username, phone, role, address } = req.body;
+    const { id, fullName, phone, role, address } = req.body;
     const file = req.file;
     let avatar: string | undefined = undefined;
     

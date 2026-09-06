@@ -97,13 +97,18 @@ export const prismaMock = {
     delete: vi.fn(),
     deleteMany: vi.fn(),
   },
-  $transaction: vi.fn((callback) => callback(prismaMock)),
+  $transaction: vi.fn((callback) => Promise.resolve(callback(prismaMock))),
   $connect: vi.fn(),
   $disconnect: vi.fn(),
 };
 
 vi.mock('@prisma/client', () => ({
   PrismaClient: vi.fn(() => prismaMock),
+  Prisma: {},
+}));
+
+vi.mock('config/client', () => ({
+  prisma: prismaMock,
 }));
 
 // Reset all mocks before each test
