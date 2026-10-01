@@ -15,11 +15,9 @@ import path from "path";
 // When running locally, use environment variables or AWS credentials file
 const s3Client = new S3Client({
   region: process.env.AWS_REGION || "ap-southeast-2",
-  // Uncomment below if running locally without IAM role
-  // credentials: {
-  //   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-  //   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  // },
+  // Checksum headers break a browser PUT to a presigned URL.
+  requestChecksumCalculation: "WHEN_REQUIRED",
+  responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 const BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME || "";

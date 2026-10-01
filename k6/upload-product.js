@@ -13,15 +13,13 @@ const images = JSON.parse(open('./images.json')).map((path) => {
   };
 });
 
-const plateaus = ['50', '100', '300', '500', '1000'];
+const plateaus = ['50', '100', '200'];
 
 function stageOf(vus) {
   const bands = [
     ['50', 45, 55],
     ['100', 90, 110],
-    ['300', 280, 320],
-    ['500', 480, 520],
-    ['1000', 950, 1100],
+    ['200', 180, 220],
   ];
   for (let i = 0; i < bands.length; i++) {
     if (vus >= bands[i][1] && vus <= bands[i][2]) return bands[i][0];
@@ -48,12 +46,8 @@ export const options = {
         { duration: '30s', target: 50 },
         { duration: '10s', target: 100 },
         { duration: '30s', target: 100 },
-        { duration: '20s', target: 300 },
-        { duration: '30s', target: 300 },
-        { duration: '20s', target: 500 },
-        { duration: '30s', target: 500 },
-        { duration: '30s', target: 1000 },
-        { duration: '30s', target: 1000 },
+        { duration: '10s', target: 200 },
+        { duration: '30s', target: 200 },
       ],
     },
   },

@@ -6,7 +6,7 @@ import { getAdminProductPage } from 'controllers/admin/dashboard.controller';
 import { getAdminOrderPage, getAdminOrderDetailPage } from 'controllers/admin/dashboard.controller';
 import { getProductPage, postAddProductToCart, getCartPage, postDeleteProductInCart, getCheckOutPage, postHandleCartToCheckout, postPlaceOrder, getThanksPage, getOrderHistoryPage, postAddToCartFromDetailPage } from 'controllers/client/product.controller';
 import fileUploadMiddleware from 'src/middleware/multer';
-import { postAdminCreateProduct, getAdminCreateProductPage, postDeleteProduct, getViewProduct, postUpdateProduct } from 'controllers/admin/product.controller';
+import { postAdminCreateProduct, getAdminCreateProductPage, postProductUploadUrl, postDeleteProduct, getViewProduct, postUpdateProduct } from 'controllers/admin/product.controller';
 import { getLoginPage, getRegisterPage, postRegister, postLogout } from 'controllers/client/auth.controller';
 import passport from 'passport';
 import { isAdmin, isLogin } from 'src/middleware/auth';
@@ -58,6 +58,7 @@ const webRoutes = (app: Express) => {
     router.get('/admin/view-user/:id', getViewUser);
     router.post('/admin/update-user', fileUploadMiddleware('avatar'), postUpdateUser);
     router.get('/admin/create-product', getAdminCreateProductPage);
+    router.post('/admin/product-upload-url', postProductUploadUrl);
     router.post('/admin/create-product', fileUploadMiddleware("image","image/product"),  postAdminCreateProduct);
     
     router.post("/admin/delete-product/:id", postDeleteProduct);

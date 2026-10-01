@@ -3,11 +3,43 @@ import { ProductSchema, TProductSchema } from '../../validation/product.schema';
 import { createProduct, handleDeleteProduct, getProductId, updateProduct, getProductList } from 'services/admin/product.service';
 import { TOTAL_ITEM_PER_PAGE } from 'config/constant';
 import { prisma } from 'config/client';
-import { uploadMulterFile } from 'services/s3.service';
+import { getPresignedUploadUrl, uploadMulterFile } from 'services/s3.service';
+
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+const productImageUrl = (value: unknown): string | undefined => {
+    if (typeof value !== 'string' || value.trim() === '') return undefined;
+    const bucket = process.env.AWS_S3_BUCKET_NAME || '';
+    const region = process.env.AWS_REGION || 'ap-southeast-2';
+    const prefix = `https://${bucket}.s3.${region}.amazonaws.com/products/`;
+    if (!bucket || !value.startsWith(prefix)) return '';
+    return value;
+};
 
 // Render create product page
 const getAdminCreateProductPage = async (req: Request, res: Response) => {
     return res.render('admin/product/create.ejs');
+};
+
+const postProductUploadUrl = async (req: Request, res: Response) => {
+    const rawType = req.body?.contentType;
+    const contentType = rawType === 'image/jpg' ? 'image/jpeg' : rawType;
+    const size = Number(req.body?.size);
+    if (
+        (contentType !== 'image/png' && contentType !== 'image/jpeg')
+        || !Number.isInteger(size)
+        || size <= 0
+        || size > MAX_IMAGE_BYTES
+    ) {
+        return res.status(400).json({ error: 'Only JPEG and PNG images up to 3MB are allowed' });
+    }
+
+    const signed = await getPresignedUploadUrl(
+        contentType === 'image/png' ? 'image.png' : 'image.jpg',
+        contentType,
+        'products',
+    );
+    return res.json({ ...signed, contentType });
 };
 
 // Create product handler
@@ -19,8 +51,13 @@ const postAdminCreateProduct = async (req: Request, res: Response) => {
         return res.status(400).send('Invalid product data');
     }
     
-    let image = '';
-    if (req.file) {
+    const provided = productImageUrl(req.body.imageUrl);
+    if (provided === '') {
+        return res.status(400).send('Invalid product image');
+    }
+
+    let image = provided || '';
+    if (!image && req.file) {
         try {
             const result = await uploadMulterFile(req.file, 'products');
             image = result.url;
@@ -89,8 +126,13 @@ const postUpdateProduct = async (req: Request, res: Response) => {
     const numId = Number(id);
     if (Number.isNaN(numId)) return res.redirect('/admin/product');
     
-    let image: string | null = null;
-    if (req.file) {
+    const provided = productImageUrl(req.body.imageUrl);
+    if (provided === '') {
+        return res.status(400).send('Invalid product image');
+    }
+
+    let image: string | null = provided || null;
+    if (!image && req.file) {
         try {
             const result = await uploadMulterFile(req.file, 'products');
             image = result.url;
@@ -120,5 +162,5 @@ const countTotalProductPages = async () => {
     return Math.ceil(totalItems / pageSize);
 };
 
-export { getAdminCreateProductPage, postAdminCreateProduct, 
+export { getAdminCreateProductPage, postProductUploadUrl, postAdminCreateProduct, 
     postDeleteProduct, getViewProduct, postUpdateProduct, countTotalProductPages };
