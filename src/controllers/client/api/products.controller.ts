@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { Prisma } from "@prisma/client";
-import { prisma } from "config/client";
+import { prismaReplica } from "config/client";
 import { getProductById } from "services/client/item.service";
 import {
     productFilterService,
@@ -19,7 +19,7 @@ const getProductsAPI = async (req: Request, res: Response) => {
 
     if (sort === "rand") {
         const limit = Math.min(pageSize, 20);
-        const products = await prisma.$queryRaw(
+        const products = await prismaReplica.$queryRaw(
             Prisma.sql`SELECT * FROM products ORDER BY RAND() LIMIT ${limit}`
         );
         return res.status(200).json({
