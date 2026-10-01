@@ -1,10 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-  const form = document.querySelector('form[data-presign-upload]');
-  if (!form) return;
-
+  document.querySelectorAll('form[data-presign-upload]').forEach((form) => {
   form.addEventListener('submit', async (event) => {
-    const fileInput = form.querySelector('input[type="file"][name="image"]');
-    const hidden = form.querySelector('input[name="imageUrl"]');
+    const fileField = form.dataset.fileField || 'image';
+    const urlField = form.dataset.urlField || 'imageUrl';
+    const ticketUrl = form.dataset.uploadUrl || '/admin/product-upload-url';
+    const fileInput = form.querySelector(`input[type="file"][name="${fileField}"]`);
+    const hidden = form.querySelector(`input[name="${urlField}"]`);
     const file = fileInput && fileInput.files && fileInput.files[0];
     if (!file || !hidden) return;
 
@@ -13,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (button) button.disabled = true;
 
     try {
-      const response = await fetch('/admin/product-upload-url', {
+      const response = await fetch(ticketUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contentType: file.type || 'image/jpeg', size: file.size }),
@@ -33,5 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (button) button.disabled = false;
       alert('Upload failed');
     }
+  });
   });
 });

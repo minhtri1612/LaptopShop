@@ -2,7 +2,18 @@ import { Request, Response } from 'express';
 import { getAllUser, handleCreateUser, handleDeleteUser, getUserById, updateUserById, getAllRoles } from '../services/user.service';
 import { getProducts, countTotalProductClientPages } from 'services/client/item.service';
 import { productFilterService, countFilteredProducts } from 'services/client/product.filter';
-import { uploadMulterFile } from 'services/s3.service';
+import { getPresignedUploadUrl, uploadMulterFile } from 'services/s3.service';
+
+const MAX_IMAGE_BYTES = 3 * 1024 * 1024;
+
+const avatarImageUrl = (value: unknown): string | undefined => {
+    if (typeof value !== 'string' || value.trim() === '') return undefined;
+    const bucket = process.env.AWS_S3_BUCKET_NAME || '';
+    const region = process.env.AWS_REGION || 'ap-southeast-2';
+    const prefix = `https://${bucket}.s3.${region}.amazonaws.com/avatars/`;
+    if (!bucket || !value.startsWith(prefix)) return '';
+    return value;
+};
 
 const getHomePage = async (req: Request, res: Response) => {
     const { page } = req.query;
@@ -73,13 +84,37 @@ const getUserPage = async (req: Request, res: Response) => {
     return res.render('admin/user/create.ejs', { roles: roles || [] });
 };
 
+const postAvatarUploadUrl = async (req: Request, res: Response) => {
+    const rawType = req.body?.contentType;
+    const contentType = rawType === 'image/jpg' ? 'image/jpeg' : rawType;
+    const size = Number(req.body?.size);
+    if (
+        (contentType !== 'image/png' && contentType !== 'image/jpeg')
+        || !Number.isInteger(size)
+        || size <= 0
+        || size > MAX_IMAGE_BYTES
+    ) {
+        return res.status(400).json({ error: 'Only JPEG and PNG images up to 3MB are allowed' });
+    }
+
+    const signed = await getPresignedUploadUrl(
+        contentType === 'image/png' ? 'image.png' : 'image.jpg',
+        contentType,
+        'avatars',
+    );
+    return res.json({ ...signed, contentType });
+};
+
 const postUserPage = async (req: Request, res: Response) => {
     const { fullName, username, phone, role, address, password } = req.body;
     const file = req.file;
-    let avatar = '';
-    
-    // Upload to S3 if file exists
-    if (file) {
+    const provided = avatarImageUrl(req.body.avatarUrl);
+    if (provided === '') {
+        return res.status(400).send('Invalid avatar');
+    }
+    let avatar = provided || '';
+
+    if (!avatar && file) {
         try {
             const result = await uploadMulterFile(file, 'avatars');
             avatar = result.url;
@@ -122,10 +157,13 @@ const getViewUser = async (req: Request, res: Response) => {
 const postUpdateUser = async (req: Request, res: Response) => {
     const { id, fullName, phone, role, address } = req.body;
     const file = req.file;
-    let avatar: string | undefined = undefined;
-    
-    // Upload to S3 if file exists
-    if (file) {
+    const provided = avatarImageUrl(req.body.avatarUrl);
+    if (provided === '') {
+        return res.status(400).send('Invalid avatar');
+    }
+    let avatar: string | undefined = provided;
+
+    if (!avatar && file) {
         try {
             const result = await uploadMulterFile(file, 'avatars');
             avatar = result.url;
@@ -140,5 +178,5 @@ const postUpdateUser = async (req: Request, res: Response) => {
 };
 
 export { 
-    getHomePage, getUserPage, postUserPage, postDeleteUser, 
+    getHomePage, getUserPage, postAvatarUploadUrl, postUserPage, postDeleteUser, 
     getViewUser, postUpdateUser, getCreateUserPage, getProductFilterPage };

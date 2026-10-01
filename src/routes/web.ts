@@ -1,5 +1,5 @@
 import express, { Express } from 'express';
-import { getHomePage, getUserPage, postUserPage, postDeleteUser, getViewUser, postUpdateUser, getProductFilterPage } from '../controllers/user.controller';
+import { getHomePage, getUserPage, postAvatarUploadUrl, postUserPage, postDeleteUser, getViewUser, postUpdateUser, getProductFilterPage } from '../controllers/user.controller';
 import { getDashboardPage } from 'controllers/admin/dashboard.controller';
 import { getAdminUserPage } from 'controllers/admin/dashboard.controller';
 import { getAdminProductPage } from 'controllers/admin/dashboard.controller';
@@ -53,6 +53,7 @@ const webRoutes = (app: Express) => {
     router.get('/admin/order', getAdminOrderPage);
     router.get('/admin/create-user', getUserPage);
     router.get("/admin/order/:id", getAdminOrderDetailPage);
+    router.post('/admin/avatar-upload-url', postAvatarUploadUrl);
     router.post('/admin/handle-create-user', fileUploadMiddleware('avatar'), postUserPage);
     router.post('/admin/delete-user/:id', postDeleteUser);
     router.get('/admin/view-user/:id', getViewUser);

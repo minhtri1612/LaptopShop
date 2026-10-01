@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Request, Response } from 'express';
 
-const { updateUserById, uploadMulterFile } = vi.hoisted(() => ({
+const { updateUserById, uploadMulterFile, getPresignedUploadUrl } = vi.hoisted(() => ({
   updateUserById: vi.fn(),
   uploadMulterFile: vi.fn(),
+  getPresignedUploadUrl: vi.fn(),
 }));
 
 vi.mock('services/user.service', () => ({
@@ -27,17 +28,21 @@ vi.mock('services/client/product.filter', () => ({
 
 vi.mock('services/s3.service', () => ({
   uploadMulterFile,
+  getPresignedUploadUrl,
 }));
 
-import { postUpdateUser } from 'controllers/user.controller';
+import { postAvatarUploadUrl, postUpdateUser } from 'controllers/user.controller';
 
 describe('postUpdateUser', () => {
   let req: Partial<Request>;
   let res: Partial<Response>;
 
   beforeEach(() => {
+    process.env.AWS_S3_BUCKET_NAME = 'test-bucket';
+    process.env.AWS_REGION = 'ap-southeast-2';
     updateUserById.mockReset().mockResolvedValue({});
     uploadMulterFile.mockReset();
+    getPresignedUploadUrl.mockReset();
     req = {
       body: {
         id: '5',
@@ -66,5 +71,46 @@ describe('postUpdateUser', () => {
     );
     expect(uploadMulterFile).not.toHaveBeenCalled();
     expect(res.redirect).toHaveBeenCalledWith('/admin/user');
+  });
+
+  it('stores a presigned avatar url', async () => {
+    const avatarUrl = 'https://test-bucket.s3.ap-southeast-2.amazonaws.com/avatars/a.png';
+    req.body.avatarUrl = avatarUrl;
+    await postUpdateUser(req as Request, res as Response);
+
+    expect(updateUserById).toHaveBeenCalledWith(
+      '5',
+      'Nguyen Van A',
+      '0900000000',
+      '1',
+      'HCM',
+      avatarUrl
+    );
+    expect(uploadMulterFile).not.toHaveBeenCalled();
+  });
+
+  it('rejects an avatar url outside the avatars prefix', async () => {
+    req.body.avatarUrl = 'https://evil.example/avatars/a.png';
+    res.status = vi.fn().mockReturnThis();
+    res.send = vi.fn();
+    await postUpdateUser(req as Request, res as Response);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(updateUserById).not.toHaveBeenCalled();
+  });
+
+  it('returns a presigned upload url for an avatar', async () => {
+    getPresignedUploadUrl.mockResolvedValue({
+      uploadUrl: 'https://s3.example/put',
+      key: 'avatars/a.png',
+      publicUrl: 'https://test-bucket.s3.ap-southeast-2.amazonaws.com/avatars/a.png',
+    });
+    req.body = { contentType: 'image/png', size: 1200 };
+    res.json = vi.fn();
+
+    await postAvatarUploadUrl(req as Request, res as Response);
+
+    expect(getPresignedUploadUrl).toHaveBeenCalledWith('image.png', 'image/png', 'avatars');
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ contentType: 'image/png' }));
   });
 });

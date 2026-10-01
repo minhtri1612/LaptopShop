@@ -29,8 +29,8 @@ function stageOf(vus) {
 
 const thresholds = {};
 for (let i = 0; i < plateaus.length; i++) {
-  thresholds[`http_req_duration{stage:${plateaus[i]}}`] = ['p(95)>=0'];
-  thresholds[`http_req_failed{stage:${plateaus[i]}}`] = ['rate>=0'];
+  thresholds[`http_req_duration{name:s3,stage:${plateaus[i]}}`] = ['p(95)>=0'];
+  thresholds[`http_req_failed{name:s3,stage:${plateaus[i]}}`] = ['rate>=0'];
   thresholds[`checks{stage:${plateaus[i]}}`] = ['rate>=0'];
 }
 
@@ -65,7 +65,7 @@ export default function () {
     const login = http.post(`${base}/login`, {
       username: __ENV.K6_USERNAME || 'hoidanit@gmail.com',
       password: __ENV.K6_PASSWORD || '123456',
-    }, { redirects: 0, tags: { stage } });
+    }, { redirects: 0, tags: { stage, name: 'login' } });
 
     const location = String(login.headers.Location || login.headers.location || '');
     check(login, {
@@ -80,6 +80,31 @@ export default function () {
   }
 
   const image = images[Math.floor(Math.random() * images.length)];
+  const ticket = http.post(`${base}/admin/product-upload-url`, JSON.stringify({
+    contentType: image.contentType,
+    size: image.data.byteLength,
+  }), {
+    headers: { 'Content-Type': 'application/json' },
+    redirects: 0,
+    tags: { stage, name: 'presign' },
+  });
+
+  check(ticket, {
+    'presign accepted': (r) => r.status === 200,
+  }, { stage });
+  if (ticket.status !== 200) return;
+
+  const signed = ticket.json();
+  const put = http.put(signed.uploadUrl, image.data, {
+    headers: { 'Content-Type': signed.contentType },
+    redirects: 0,
+    tags: { stage, name: 's3' },
+  });
+  check(put, {
+    's3 accepted the file': (r) => r.status === 200,
+  }, { stage });
+  if (put.status !== 200) return;
+
   const res = http.post(`${base}/admin/create-product`, {
     name: `k6-${__VU}-${__ITER}`,
     price: '1000',
@@ -88,11 +113,11 @@ export default function () {
     quantity: '1',
     factory: 'ASUS',
     target: 'GAMING',
-    image: http.file(image.data, image.name, image.contentType),
-  }, { redirects: 0, tags: { stage } });
+    imageUrl: signed.publicUrl,
+  }, { redirects: 0, tags: { stage, name: 'create' } });
 
   const location = String(res.headers.Location || res.headers.location || '');
   check(res, {
-    'upload reached the app': (r) => r.status === 302 && location.includes('/admin/product'),
+    'product saved': (r) => r.status === 302 && location.includes('/admin/product'),
   }, { stage });
 }
