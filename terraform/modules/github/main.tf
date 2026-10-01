@@ -81,6 +81,17 @@ data "aws_iam_policy_document" "plan_state" {
       "arn:aws:s3:::laptopshop-tfstate-*/*",
     ]
   }
+
+  statement {
+    sid = "ReadAppSecret"
+    actions = [
+      "secretsmanager:DescribeSecret",
+      "secretsmanager:GetSecretValue",
+    ]
+    resources = [
+      "arn:aws:secretsmanager:*:${local.account_id}:secret:laptopshop-*",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "plan_state" {
