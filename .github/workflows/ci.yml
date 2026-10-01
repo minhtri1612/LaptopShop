@@ -2,8 +2,28 @@ name: ci
 
 on:
   pull_request:
+    paths:
+      - src/**
+      - public/**
+      - prisma/**
+      - terraform/**
+      - Dockerfile
+      - docker-compose.yml
+      - package.json
+      - package-lock.json
+      - tsconfig.json
   push:
     branches: [main]
+    paths:
+      - src/**
+      - public/**
+      - prisma/**
+      - terraform/**
+      - Dockerfile
+      - docker-compose.yml
+      - package.json
+      - package-lock.json
+      - tsconfig.json
   workflow_dispatch:
     inputs:
       action:
@@ -19,8 +39,50 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+      terraform: ${{ steps.diff.outputs.terraform }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            echo "terraform=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "app=true" >> "$GITHUB_OUTPUT"
+            echo "terraform=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(git diff --name-only "$base" HEAD)"
+          echo "$files"
+          app=false
+          terraform=false
+          if echo "$files" | grep -Eq '^(src/|public/|prisma/|package\.json$|package-lock\.json$|tsconfig\.json$|Dockerfile$|docker-compose\.yml$)'; then
+            app=true
+          fi
+          if echo "$files" | grep -Eq '^terraform/'; then
+            terraform=true
+          fi
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "terraform=$terraform" >> "$GITHUB_OUTPUT"
+
   test:
-    if: github.event_name != 'workflow_dispatch' || inputs.action != 'destroy'
+    needs: changes
+    if: >
+      needs.changes.outputs.app == 'true' &&
+      (github.event_name != 'workflow_dispatch' || inputs.action != 'destroy')
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -51,9 +113,11 @@ jobs:
       - run: npm test
 
   terraform-plan:
+    needs: changes
     if: >
       (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == github.repository) ||
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       needs.changes.outputs.terraform == 'true') ||
       (github.event_name == 'workflow_dispatch' && inputs.action == 'plan')
     runs-on: ubuntu-latest
     permissions:
@@ -81,10 +145,15 @@ jobs:
         run: terraform plan -input=false -var-file=terraform.tfvars.example -no-color
 
   terraform-apply:
-    needs: test
+    needs: [changes, test]
     if: >
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+      !cancelled() &&
+      needs.changes.outputs.terraform == 'true' &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+      )
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -140,8 +209,16 @@ jobs:
         run: terraform destroy -input=false -auto-approve -var-file=terraform.tfvars.example -no-color
 
   deploy:
-    needs: [test, terraform-apply]
-    if: always() && needs.test.result == 'success' && needs.terraform-apply.result == 'success'
+    needs: [changes, test, terraform-apply]
+    if: >
+      !cancelled() &&
+      needs.changes.outputs.app == 'true' &&
+      needs.test.result == 'success' &&
+      (needs.terraform-apply.result == 'success' || needs.terraform-apply.result == 'skipped') &&
+      (
+        (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+        (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+      )
     runs-on: ubuntu-latest
     permissions:
       id-token: write
