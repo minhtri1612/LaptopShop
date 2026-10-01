@@ -15,6 +15,10 @@ variable "db_host" {
   type = string
 }
 
+variable "replica_host" {
+  type = string
+}
+
 variable "db_name" {
   type = string
 }

@@ -265,7 +265,21 @@ jobs:
               .registeredAt,
               .registeredBy
             )
-            | .containerDefinitions |= map(if .name == $NAME then .image = $IMAGE else . end)
+            | .containerDefinitions |= map(
+                if .name == $NAME then
+                  .image = $IMAGE
+                  | .secrets = (
+                      .secrets
+                      | if any(.name == "DATABASE_REPLICA_URL") then .
+                        else . + [{
+                          name: "DATABASE_REPLICA_URL",
+                          valueFrom: (map(select(.name == "DATABASE_URL"))[0].valueFrom | sub(":DATABASE_URL::"; ":DATABASE_REPLICA_URL::"))
+                        }]
+                        end
+                    )
+                else .
+                end
+              )
           ' task-definition.json > new-task-definition.json
           arn=$(aws ecs register-task-definition \
             --cli-input-json file://new-task-definition.json \

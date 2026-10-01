@@ -1,6 +1,6 @@
 import { skip } from "@prisma/client/runtime/library";
 import { Prisma } from "@prisma/client";
-import { prisma } from "config/client";
+import { prisma, prismaPrimary } from "config/client";
 
 async function assertCartItemInStock(
     tx: Prisma.TransactionClient,
@@ -201,7 +201,7 @@ const handlerPlaceOrder = async (
     totalPrice: number = 0
 ) => {
     try {
-        await prisma.$transaction(async (tx) => {
+        await prismaPrimary.$transaction(async (tx) => {
             const cart = await tx.cart.findUnique({
                 where: { userId },
                 include: { cartDetails: true }

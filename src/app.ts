@@ -6,7 +6,7 @@ import 'dotenv/config';
 import webRoutes from './routes/web';
 import passport from 'passport';
 import configPassportLocal from 'src/middleware/passport.local';
-import { prisma } from 'config/client';
+import { prismaPrimary } from 'config/client';
 import session from 'express-session';
 import { PrismaSessionStore } from '@quixo3/prisma-session-store';
 import { PrismaClient } from '@prisma/client';
@@ -35,7 +35,7 @@ app.use('/images/product', express.static('public/image/product'));
 // Tests use express-session's MemoryStore instead.
 const sessionStore = process.env.NODE_ENV === 'test'
     ? undefined
-    : new PrismaSessionStore(prisma, {
+    : new PrismaSessionStore(prismaPrimary, {
         checkPeriod: 2 * 60 * 1000,
         dbRecordIdIsSessionId: true,
         dbRecordIdFunction: undefined,

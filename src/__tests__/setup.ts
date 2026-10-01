@@ -113,6 +113,7 @@ vi.mock('@prisma/client', () => ({
 
 vi.mock('config/client', () => ({
   prisma: prismaMock,
+  prismaPrimary: prismaMock,
 }));
 
 // Reset all mocks before each test

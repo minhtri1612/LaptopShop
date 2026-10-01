@@ -61,3 +61,17 @@ resource "aws_db_instance" "main" {
   apply_immediately               = false
   enabled_cloudwatch_logs_exports = ["error", "slowquery"]
 }
+
+resource "aws_db_instance" "replica" {
+  identifier          = "${var.name}-replica"
+  replicate_source_db = aws_db_instance.main.identifier
+  instance_class      = var.instance_class
+
+  publicly_accessible    = false
+  vpc_security_group_ids = [aws_security_group.rds.id]
+  skip_final_snapshot    = true
+  deletion_protection    = var.deletion_protection
+
+  auto_minor_version_upgrade = true
+  apply_immediately          = true
+}

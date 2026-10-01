@@ -59,12 +59,13 @@ module "rds" {
 }
 
 module "secrets" {
-  source      = "../../modules/secrets"
-  name        = local.name
-  db_username = var.db_username
-  db_password = module.rds.password
-  db_host     = module.rds.address
-  db_name     = var.db_name
+  source       = "../../modules/secrets"
+  name         = local.name
+  db_username  = var.db_username
+  db_password  = module.rds.password
+  db_host      = module.rds.address
+  replica_host = module.rds.replica_address
+  db_name      = var.db_name
 }
 
 module "iam" {

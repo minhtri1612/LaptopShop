@@ -22,6 +22,10 @@ output "rds_address" {
   value = module.rds.address
 }
 
+output "rds_replica_address" {
+  value = module.rds.replica_address
+}
+
 output "github_plan_role_arn" {
   value = module.github.plan_role_arn
 }

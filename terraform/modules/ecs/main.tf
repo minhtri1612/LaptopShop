@@ -51,6 +51,7 @@ resource "aws_ecs_task_definition" "app" {
       ]
       secrets = [
         { name = "DATABASE_URL", valueFrom = "${var.secret_arn}:DATABASE_URL::" },
+        { name = "DATABASE_REPLICA_URL", valueFrom = "${var.secret_arn}:DATABASE_REPLICA_URL::" },
         { name = "SESSION_SECRET", valueFrom = "${var.secret_arn}:SESSION_SECRET::" },
         { name = "JWT_SECRET", valueFrom = "${var.secret_arn}:JWT_SECRET::" },
       ]

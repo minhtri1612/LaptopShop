@@ -17,8 +17,9 @@ resource "aws_secretsmanager_secret_version" "app" {
   secret_id = aws_secretsmanager_secret.app.id
 
   secret_string = jsonencode({
-    DATABASE_URL   = "mysql://${var.db_username}:${var.db_password}@${var.db_host}:3306/${var.db_name}"
-    SESSION_SECRET = random_password.session.result
-    JWT_SECRET     = random_password.jwt.result
+    DATABASE_URL         = "mysql://${var.db_username}:${var.db_password}@${var.db_host}:3306/${var.db_name}"
+    DATABASE_REPLICA_URL = "mysql://${var.db_username}:${var.db_password}@${var.replica_host}:3306/${var.db_name}"
+    SESSION_SECRET       = random_password.session.result
+    JWT_SECRET           = random_password.jwt.result
   })
 }
