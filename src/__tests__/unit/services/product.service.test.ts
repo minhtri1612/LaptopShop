@@ -1,193 +1,71 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { prismaMock, resetMocks } from '../../setup';
-import { mockProducts, mockProduct, newProductInput } from '../../fixtures/testData';
+import { mockProduct, mockProducts } from '../../fixtures/testData';
+import { getProductList, getProductId, handleDeleteProduct } from 'services/admin/product.service';
+import { productFilterService, countFilteredProducts } from 'services/client/product.filter';
 
-describe('Product Service Tests', () => {
+describe('product services', () => {
   beforeEach(() => {
     resetMocks();
   });
 
-  describe('Product CRUD Operations', () => {
-    it('should get all products with pagination', async () => {
-      prismaMock.product.findMany.mockResolvedValue(mockProducts);
+  it('pages the admin product list', async () => {
+    prismaMock.product.findMany.mockResolvedValue(mockProducts);
 
-      const result = await prismaMock.product.findMany({
-        skip: 0,
-        take: 10,
-      });
+    const products = await getProductList(2);
 
-      expect(result).toEqual(mockProducts);
-      expect(result).toHaveLength(3);
-    });
+    expect(prismaMock.product.findMany).toHaveBeenCalledWith({ skip: 3, take: 3 });
+    expect(products).toEqual(mockProducts);
+  });
 
-    it('should get product by id', async () => {
-      prismaMock.product.findUnique.mockResolvedValue(mockProduct);
+  it('loads and deletes a product by id', async () => {
+    prismaMock.product.findUnique.mockResolvedValue(mockProduct);
+    prismaMock.product.delete.mockResolvedValue(mockProduct);
 
-      const result = await prismaMock.product.findUnique({
-        where: { id: 1 },
-      });
+    await expect(getProductId(1)).resolves.toEqual(mockProduct);
+    await handleDeleteProduct(1);
 
-      expect(result).toEqual(mockProduct);
-      expect(result?.name).toBe('Laptop Dell XPS 15');
-    });
+    expect(prismaMock.product.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+  });
 
-    it('should return null when product not found', async () => {
-      prismaMock.product.findUnique.mockResolvedValue(null);
+  it('filters by factory and sorts by ascending price', async () => {
+    prismaMock.product.findMany.mockResolvedValue([mockProduct]);
 
-      const result = await prismaMock.product.findUnique({
-        where: { id: 999 },
-      });
+    await productFilterService(1, 8, 'DELL', undefined, undefined, 'gia-tang-dan');
 
-      expect(result).toBeNull();
-    });
-
-    it('should create new product', async () => {
-      const newProduct = { id: 4, ...newProductInput };
-      prismaMock.product.create.mockResolvedValue(newProduct);
-
-      const result = await prismaMock.product.create({
-        data: newProductInput,
-      });
-
-      expect(result.name).toBe('New Laptop');
-      expect(result.id).toBe(4);
-    });
-
-    it('should update product', async () => {
-      const updatedProduct = { ...mockProduct, price: 30000000 };
-      prismaMock.product.update.mockResolvedValue(updatedProduct);
-
-      const result = await prismaMock.product.update({
-        where: { id: 1 },
-        data: { price: 30000000 },
-      });
-
-      expect(result.price).toBe(30000000);
-    });
-
-    it('should delete product', async () => {
-      prismaMock.product.delete.mockResolvedValue(mockProduct);
-
-      const result = await prismaMock.product.delete({
-        where: { id: 1 },
-      });
-
-      expect(result.id).toBe(1);
-    });
-
-    it('should count products', async () => {
-      prismaMock.product.count.mockResolvedValue(100);
-
-      const count = await prismaMock.product.count();
-
-      expect(count).toBe(100);
+    expect(prismaMock.product.findMany).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          {
+            AND: [
+              { factory: { in: ['DELL'] } },
+              { factory: { not: null } },
+            ],
+          },
+        ],
+      },
+      orderBy: { price: 'asc' },
+      skip: 0,
+      take: 8,
     });
   });
 
-  describe('Product Search and Filter', () => {
-    it('should filter products by factory', async () => {
-      const asusProducts = mockProducts.filter((p: any) => p.factory === 'ASUS');
-      prismaMock.product.findMany.mockResolvedValue(asusProducts);
+  it('counts products inside a price bucket', async () => {
+    prismaMock.product.count.mockResolvedValue(2);
 
-      const result = await prismaMock.product.findMany({
-        where: { factory: 'ASUS' },
-      });
+    const total = await countFilteredProducts(undefined, undefined, '10-15-trieu');
 
-      expect(result.every((p: any) => p.factory === 'ASUS')).toBe(true);
-    });
-
-    it('should filter products by target', async () => {
-      const gamingProducts = mockProducts.filter((p: any) => p.target === 'Gaming');
-      prismaMock.product.findMany.mockResolvedValue(gamingProducts);
-
-      const result = await prismaMock.product.findMany({
-        where: { target: 'Gaming' },
-      });
-
-      expect(result.every((p: any) => p.target === 'Gaming')).toBe(true);
-    });
-
-    it('should filter products by price range', async () => {
-      const affordableProducts = mockProducts.filter((p: any) => p.price <= 30000000);
-      prismaMock.product.findMany.mockResolvedValue(affordableProducts);
-
-      const result = await prismaMock.product.findMany({
-        where: {
-          price: { lte: 30000000 },
-        },
-      });
-
-      expect(result.every((p: any) => p.price <= 30000000)).toBe(true);
-    });
-
-    it('should search products by name', async () => {
-      const searchResults = mockProducts.filter((p: any) =>
-        p.name.toLowerCase().includes('asus')
-      );
-      prismaMock.product.findMany.mockResolvedValue(searchResults);
-
-      const result = await prismaMock.product.findMany({
-        where: {
-          name: { contains: 'asus' },
-        },
-      });
-
-      expect(result.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('Product Stock Management', () => {
-    it('should update product quantity', async () => {
-      const updatedProduct = { ...mockProduct, quantity: 50 };
-      prismaMock.product.update.mockResolvedValue(updatedProduct);
-
-      const result = await prismaMock.product.update({
-        where: { id: 1 },
-        data: { quantity: 50 },
-      });
-
-      expect(result.quantity).toBe(50);
-    });
-
-    it('should increment sold count', async () => {
-      const updatedProduct = { ...mockProduct, sold: mockProduct.sold + 1 };
-      prismaMock.product.update.mockResolvedValue(updatedProduct);
-
-      const result = await prismaMock.product.update({
-        where: { id: 1 },
-        data: { sold: { increment: 1 } },
-      });
-
-      expect(result.sold).toBe(mockProduct.sold + 1);
-    });
-
-    it('should check if product is in stock', () => {
-      const isInStock = mockProduct.quantity > 0;
-      expect(isInStock).toBe(true);
-    });
-  });
-
-  describe('Product Pagination', () => {
-    it('should calculate total pages correctly', async () => {
-      prismaMock.product.count.mockResolvedValue(25);
-
-      const totalItems = await prismaMock.product.count();
-      const pageSize = 10;
-      const totalPages = Math.ceil(totalItems / pageSize);
-
-      expect(totalPages).toBe(3);
-    });
-
-    it('should return correct page of products', async () => {
-      const page2Products = mockProducts.slice(0, 2);
-      prismaMock.product.findMany.mockResolvedValue(page2Products);
-
-      const result = await prismaMock.product.findMany({
-        skip: 10,
-        take: 10,
-      });
-
-      expect(result).toHaveLength(2);
+    expect(total).toBe(2);
+    expect(prismaMock.product.count).toHaveBeenCalledWith({
+      where: {
+        AND: [
+          {
+            OR: [
+              { price: { gte: 10000000, lte: 15000000 } },
+            ],
+          },
+        ],
+      },
     });
   });
 });

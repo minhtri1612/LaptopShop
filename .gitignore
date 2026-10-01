@@ -69,6 +69,9 @@ terraform.rc
 *.tfplan
 *.plan
 
+# Backend config copied from backend.hcl.example
+terraform/backend.hcl
+
 # =============================================================================
 # IDE & Editor
 # =============================================================================

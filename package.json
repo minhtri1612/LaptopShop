@@ -4,14 +4,14 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.db.config.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "build": "tsc && tsc-alias -p tsconfig.json && cp -r src/views dist/views",
-    "start": "node dist/app.js",
+    "start": "node dist/server.js",
     "dev": "nodemon",
-    "start:debug": "nodemon --inspect=9229 -e ts,tsx --exec node -r ts-node/register -r tsconfig-paths/register ./src/app.ts",
+    "start:debug": "nodemon --inspect=9229 -e ts,tsx --exec node -r ts-node/register -r tsconfig-paths/register ./src/server.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:status": "prisma migrate status",
@@ -25,7 +25,7 @@
     "ignore": [
       "node_modules"
     ],
-    "exec": "ts-node -r tsconfig-paths/register ./src/app.ts"
+    "exec": "ts-node -r tsconfig-paths/register ./src/server.ts"
   },
   "author": "",
   "license": "ISC",

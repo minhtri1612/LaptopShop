@@ -1,123 +1,73 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { prismaMock, resetMocks } from '../../setup';
-import { mockUser, mockAdmin, newUserInput } from '../../fixtures/testData';
 
-describe('Auth Service Tests', () => {
+vi.mock('bcrypt', () => ({
+  default: {
+    hash: vi.fn().mockResolvedValue('hashed-password'),
+    compare: vi.fn(),
+  },
+}));
+
+import {
+  isEmailExist,
+  registerNewUser,
+  getUserWithRoleById,
+  getUserSumCart,
+} from 'services/client/auth.service';
+
+describe('auth.service', () => {
   beforeEach(() => {
     resetMocks();
   });
 
-  describe('User Authentication', () => {
-    it('should find user by email', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockUser);
+  it('reports whether a username is already taken', async () => {
+    prismaMock.user.findUnique.mockResolvedValueOnce({ id: 1 }).mockResolvedValueOnce(null);
 
-      const result = await prismaMock.user.findFirst({
-        where: { email: 'test@example.com' },
-        include: { role: true },
-      });
+    await expect(isEmailExist('taken@example.com')).resolves.toBe(true);
+    await expect(isEmailExist('free@example.com')).resolves.toBe(false);
+  });
 
-      expect(result?.email).toBe('test@example.com');
-      expect(result?.role).toBeDefined();
-    });
+  it('creates a USER account with a hashed password', async () => {
+    prismaMock.role.findUnique.mockResolvedValue({ id: 2, name: 'USER' });
+    prismaMock.user.create.mockResolvedValue({ id: 9 });
 
-    it('should return null when email not found', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(null);
+    await registerNewUser('New User', 'new@example.com', 'secret');
 
-      const result = await prismaMock.user.findFirst({
-        where: { email: 'nonexistent@example.com' },
-      });
-
-      expect(result).toBeNull();
+    expect(prismaMock.user.create).toHaveBeenCalledWith({
+      data: {
+        username: 'new@example.com',
+        password: 'hashed-password',
+        fullName: 'New User',
+        accountType: 'SYSTEM',
+        roleId: 2,
+      },
     });
   });
 
-  describe('User Registration', () => {
-    it('should create new user', async () => {
-      const newUser = { id: 3, ...newUserInput, roleId: 2, password: 'hashedpassword' };
-      prismaMock.user.create.mockResolvedValue(newUser);
+  it('does not create a user when the USER role is missing', async () => {
+    prismaMock.role.findUnique.mockResolvedValue(null);
 
-      const result = await prismaMock.user.create({
-        data: {
-          ...newUserInput,
-          password: 'hashedpassword',
-          roleId: 2,
-        },
-      });
+    await registerNewUser('New User', 'new@example.com', 'secret');
 
-      expect(result.email).toBe('newuser@example.com');
-      expect(result.id).toBe(3);
-    });
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
 
-    it('should check if email already exists', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockUser);
+  it('loads a user with the role and without the password', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ id: 1, role: { name: 'USER' } });
 
-      const existingUser = await prismaMock.user.findFirst({
-        where: { email: 'test@example.com' },
-      });
+    await getUserWithRoleById('1');
 
-      expect(existingUser).not.toBeNull();
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
+      where: { id: 1 },
+      include: { role: true },
+      omit: { password: true },
     });
   });
 
-  describe('User Profile', () => {
-    it('should get user by id', async () => {
-      prismaMock.user.findUnique.mockResolvedValue(mockUser);
+  it('returns the cart sum, or 0 when the user has no cart', async () => {
+    prismaMock.cart.findUnique.mockResolvedValueOnce({ sum: 4 }).mockResolvedValueOnce(null);
 
-      const result = await prismaMock.user.findUnique({
-        where: { id: 1 },
-        include: { role: true },
-      });
-
-      expect(result?.id).toBe(1);
-      expect(result?.role).toBeDefined();
-    });
-
-    it('should update user profile', async () => {
-      const updatedUser = {
-        ...mockUser,
-        fullName: 'Updated Name',
-        phone: '0999888777',
-      };
-      prismaMock.user.update.mockResolvedValue(updatedUser);
-
-      const result = await prismaMock.user.update({
-        where: { id: 1 },
-        data: { fullName: 'Updated Name', phone: '0999888777' },
-      });
-
-      expect(result.fullName).toBe('Updated Name');
-      expect(result.phone).toBe('0999888777');
-    });
-  });
-
-  describe('Password Management', () => {
-    it('should update password', async () => {
-      const updatedUser = { ...mockUser, password: 'newhashedpassword' };
-      prismaMock.user.update.mockResolvedValue(updatedUser);
-
-      const result = await prismaMock.user.update({
-        where: { id: 1 },
-        data: { password: 'newhashedpassword' },
-      });
-
-      expect(result.password).toBe('newhashedpassword');
-    });
-  });
-
-  describe('Role Checks', () => {
-    it('should identify admin user', () => {
-      expect(mockAdmin.role.name).toBe('ADMIN');
-    });
-
-    it('should identify regular user', () => {
-      expect(mockUser.role.name).toBe('USER');
-    });
-
-    it('should check if user is admin', () => {
-      const isAdmin = (user: typeof mockUser) => user.role.name === 'ADMIN';
-      
-      expect(isAdmin(mockAdmin)).toBe(true);
-      expect(isAdmin(mockUser)).toBe(false);
-    });
+    await expect(getUserSumCart('1')).resolves.toBe(4);
+    await expect(getUserSumCart('1')).resolves.toBe(0);
   });
 });

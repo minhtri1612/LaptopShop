@@ -1,125 +1,102 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { prismaMock, resetMocks } from '../../setup';
-import { mockUser, mockAdmin, mockUsers, newUserInput } from '../../fixtures/testData';
+import { mockUsers } from '../../fixtures/testData';
 
-describe('User Service Tests', () => {
+vi.mock('bcrypt', () => ({
+  default: {
+    hash: vi.fn().mockResolvedValue('hashed-password'),
+    compare: vi.fn().mockResolvedValue(true),
+  },
+}));
+
+vi.mock('config/database', () => ({
+  default: vi.fn(),
+}));
+
+import {
+  handleCreateUser,
+  getAllUser,
+  countTotalUserPages,
+  getAllRoles,
+  handleDeleteUser,
+  getUserById,
+  updateUserById,
+} from 'services/user.service';
+
+describe('user.service', () => {
   beforeEach(() => {
     resetMocks();
+    vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
-  describe('User CRUD Operations', () => {
-    it('should get all users', async () => {
-      prismaMock.user.findMany.mockResolvedValue(mockUsers);
+  it('hashes the password and stores username as the email', async () => {
+    prismaMock.user.create.mockResolvedValue({ id: 3 });
 
-      const result = await prismaMock.user.findMany();
+    await handleCreateUser('New User', 'new@example.com', 'HCM', '0900', 'a.png', '2', 'secret');
 
-      expect(result).toEqual(mockUsers);
-      expect(result).toHaveLength(2);
-    });
-
-    it('should get user by id', async () => {
-      prismaMock.user.findUnique.mockResolvedValue(mockUser);
-
-      const result = await prismaMock.user.findUnique({
-        where: { id: 1 },
-      });
-
-      expect(result).toEqual(mockUser);
-      expect(result?.id).toBe(1);
-    });
-
-    it('should return null when user not found', async () => {
-      prismaMock.user.findUnique.mockResolvedValue(null);
-
-      const result = await prismaMock.user.findUnique({
-        where: { id: 999 },
-      });
-
-      expect(result).toBeNull();
-    });
-
-    it('should create new user', async () => {
-      const newUser = { id: 3, ...newUserInput, roleId: 2 };
-      prismaMock.user.create.mockResolvedValue(newUser);
-
-      const result = await prismaMock.user.create({
-        data: newUserInput,
-      });
-
-      expect(result.email).toBe('newuser@example.com');
-      expect(result.id).toBe(3);
-    });
-
-    it('should update user', async () => {
-      const updatedUser = { ...mockUser, fullName: 'Updated Name' };
-      prismaMock.user.update.mockResolvedValue(updatedUser);
-
-      const result = await prismaMock.user.update({
-        where: { id: 1 },
-        data: { fullName: 'Updated Name' },
-      });
-
-      expect(result.fullName).toBe('Updated Name');
-    });
-
-    it('should delete user', async () => {
-      prismaMock.user.delete.mockResolvedValue(mockUser);
-
-      const result = await prismaMock.user.delete({
-        where: { id: 1 },
-      });
-
-      expect(result.id).toBe(1);
-    });
-
-    it('should count users', async () => {
-      prismaMock.user.count.mockResolvedValue(10);
-
-      const count = await prismaMock.user.count();
-
-      expect(count).toBe(10);
+    expect(prismaMock.user.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        fullName: 'New User',
+        username: 'new@example.com',
+        address: 'HCM',
+        phone: '0900',
+        avatar: 'a.png',
+        password: 'hashed-password',
+        accountType: 'SYSTEM',
+        roleId: 2,
+      }),
     });
   });
 
-  describe('User Search Operations', () => {
-    it('should find user by email', async () => {
-      prismaMock.user.findFirst.mockResolvedValue(mockUser);
+  it('pages users with the role included', async () => {
+    prismaMock.user.findMany.mockResolvedValue(mockUsers);
 
-      const result = await prismaMock.user.findFirst({
-        where: { email: 'test@example.com' },
-      });
+    const users = await getAllUser(2);
 
-      expect(result?.email).toBe('test@example.com');
+    expect(prismaMock.user.findMany).toHaveBeenCalledWith({
+      skip: 3,
+      take: 3,
+      include: { role: true },
     });
-
-    it('should filter users by role', async () => {
-      const adminUsers = mockUsers.filter((u: any) => u.role.name === 'ADMIN');
-      prismaMock.user.findMany.mockResolvedValue(adminUsers);
-
-      const result = await prismaMock.user.findMany({
-        where: { role: { name: 'ADMIN' } },
-      });
-
-      expect(result.every((u: any) => u.role.name === 'ADMIN')).toBe(true);
-    });
+    expect(users).toEqual(mockUsers);
   });
 
-  describe('User with Relations', () => {
-    it('should get user with role', async () => {
-      prismaMock.user.findUnique.mockResolvedValue(mockUser);
+  it('counts user pages from the page size', async () => {
+    prismaMock.user.count.mockResolvedValue(7);
 
-      const result = await prismaMock.user.findUnique({
-        where: { id: 1 },
-        include: { role: true },
-      });
+    await expect(countTotalUserPages()).resolves.toBe(3);
+  });
 
-      expect(result?.role).toBeDefined();
-      expect(result?.role.name).toBe('USER');
-    });
+  it('returns an empty role list when the query fails', async () => {
+    prismaMock.role.findMany.mockRejectedValue(new Error('db down'));
 
-    it('should distinguish admin from regular user', () => {
-      expect(mockUser.role.name).toBe('USER');
-      expect(mockAdmin.role.name).toBe('ADMIN');
+    await expect(getAllRoles()).resolves.toEqual([]);
+  });
+
+  it('deletes and loads a user by numeric id', async () => {
+    prismaMock.user.delete.mockResolvedValue({ id: 4 });
+    prismaMock.user.findUnique.mockResolvedValue({ id: 4 });
+
+    await handleDeleteUser('4');
+    await getUserById('4');
+
+    expect(prismaMock.user.delete).toHaveBeenCalledWith({ where: { id: 4 } });
+    expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { id: 4 } });
+  });
+
+  it('omits an empty avatar when updating a user', async () => {
+    prismaMock.user.update.mockResolvedValue({ id: 4 });
+
+    await updateUserById('4', 'Name', '0900', '2', 'HCM', '');
+
+    expect(prismaMock.user.update).toHaveBeenCalledWith({
+      where: { id: 4 },
+      data: {
+        fullName: 'Name',
+        phone: '0900',
+        roleId: 2,
+        address: 'HCM',
+      },
     });
   });
 });

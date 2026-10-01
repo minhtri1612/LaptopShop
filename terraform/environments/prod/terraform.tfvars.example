@@ -1,0 +1,11 @@
+region              = "ap-southeast-2"
+project_name        = "laptopshop"
+environment         = "prod"
+vpc_cidr            = "10.3.0.0/16"
+multi_az            = true
+ecs_desired_count   = 0
+deletion_protection = true
+skip_final_snapshot = false
+certificate_arn     = ""
+github_repository   = "minhtri1612/LaptopShop"
+github_branch       = "main"

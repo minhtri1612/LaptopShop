@@ -25,7 +25,7 @@ const isAdmin = (req: any, res: any, next: any) => {
         return next();
     }
 
-    return res.redirect('/status/403.ejs');
+    return res.redirect('/status/403');
 };
 
 /** API: 401 JSON if no authenticated user on the request. */

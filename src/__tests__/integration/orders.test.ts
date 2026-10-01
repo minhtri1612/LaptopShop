@@ -1,372 +1,142 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
 import { prismaMock, resetMocks } from '../setup';
-import { mockOrders, mockAdmin, mockUser } from '../fixtures/testData';
+import { mockOrder, mockOrders } from '../fixtures/testData';
+import { adminToken, createApiApp, userToken } from '../helpers/apiApp';
 
-// Mock prisma
-vi.mock('@prisma/client', () => ({
-  PrismaClient: vi.fn(() => prismaMock),
-}));
+const app = createApiApp();
+const auth = { Authorization: `Bearer ${userToken()}` };
 
-describe('Orders API Integration Tests', () => {
+describe('orders API', () => {
   beforeEach(() => {
     resetMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  describe('GET /admin/orders', () => {
-    it('should return all orders for admin', async () => {
-      prismaMock.order.findMany.mockResolvedValue(mockOrders);
-      prismaMock.order.count.mockResolvedValue(mockOrders.length);
+  it('rejects an anonymous order list', async () => {
+    const response = await request(app).get('/api/orders');
 
-      const response = {
-        status: 200,
-        body: {
-          orders: mockOrders,
-          total: mockOrders.length,
-        },
-      };
-
-      expect(response.status).toBe(200);
-      expect(response.body.orders).toHaveLength(2);
-    });
-
-    it('should return 401 for unauthenticated requests', async () => {
-      const response = {
-        status: 401,
-        body: { message: 'Unauthorized' },
-      };
-
-      expect(response.status).toBe(401);
-    });
-
-    it('should return 403 for non-admin users', async () => {
-      const response = {
-        status: 403,
-        body: { message: 'Forbidden: Admin access required' },
-      };
-
-      expect(response.status).toBe(403);
-    });
-
-    it('should filter orders by status', async () => {
-      const pendingOrders = mockOrders.filter((o: any) => o.status === 'PENDING');
-      prismaMock.order.findMany.mockResolvedValue(pendingOrders);
-
-      const response = {
-        status: 200,
-        body: { orders: pendingOrders },
-      };
-
-      expect(response.status).toBe(200);
-      expect(response.body.orders.every((o: any) => o.status === 'PENDING')).toBe(true);
-    });
-
-    it('should support pagination', async () => {
-      prismaMock.order.findMany.mockResolvedValue(mockOrders.slice(0, 1));
-      prismaMock.order.count.mockResolvedValue(mockOrders.length);
-
-      const response = {
-        status: 200,
-        body: {
-          orders: mockOrders.slice(0, 1),
-          total: 2,
-          page: 1,
-          limit: 1,
-        },
-      };
-
-      expect(response.status).toBe(200);
-      expect(response.body.orders).toHaveLength(1);
-      expect(response.body.total).toBe(2);
-    });
+    expect(response.status).toBe(401);
   });
 
-  describe('GET /admin/orders/:id', () => {
-    it('should return order by id', async () => {
-      prismaMock.order.findUnique.mockResolvedValue(mockOrders[0]);
+  it('lists the signed-in user orders', async () => {
+    prismaMock.order.findMany.mockResolvedValue(mockOrders);
 
-      const response = {
-        status: 200,
-        body: mockOrders[0],
-      };
+    const response = await request(app).get('/api/orders').set(auth);
 
-      expect(response.status).toBe(200);
-      expect(response.body.id).toBe(1);
-    });
-
-    it('should return 404 for non-existent order', async () => {
-      prismaMock.order.findUnique.mockResolvedValue(null);
-
-      const response = {
-        status: 404,
-        body: { message: 'Order not found' },
-      };
-
-      expect(response.status).toBe(404);
-    });
-
-    it('should include order details', async () => {
-      const orderWithDetails = {
-        ...mockOrders[0],
-        orderDetails: [
-          {
-            id: 1,
-            productId: 1,
-            quantity: 2,
-            price: 25990000,
-            product: { name: 'Laptop Gaming ASUS' },
-          },
-        ],
-      };
-      prismaMock.order.findUnique.mockResolvedValue(orderWithDetails);
-
-      const response = {
-        status: 200,
-        body: orderWithDetails,
-      };
-
-      expect(response.status).toBe(200);
-      expect(response.body.orderDetails).toBeDefined();
-      expect(response.body.orderDetails).toHaveLength(1);
-    });
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(2);
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 1 } })
+    );
   });
 
-  describe('PUT /admin/orders/:id/status', () => {
-    it('should update order status', async () => {
-      const updatedOrder = { ...mockOrders[0], status: 'SHIPPING' };
-      prismaMock.order.update.mockResolvedValue(updatedOrder);
+  it('returns an order the user owns', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(mockOrder);
 
-      const response = {
-        status: 200,
-        body: {
-          message: 'Order status updated',
-          order: updatedOrder,
-        },
-      };
+    const response = await request(app).get('/api/orders/1').set(auth);
 
-      expect(response.status).toBe(200);
-      expect(response.body.order.status).toBe('SHIPPING');
-    });
-
-    it('should return 400 for invalid status', async () => {
-      const response = {
-        status: 400,
-        body: { message: 'Invalid order status' },
-      };
-
-      expect(response.status).toBe(400);
-    });
-
-    it('should return 404 when order not found', async () => {
-      prismaMock.order.findUnique.mockResolvedValue(null);
-
-      const response = {
-        status: 404,
-        body: { message: 'Order not found' },
-      };
-
-      expect(response.status).toBe(404);
-    });
-
-    it('should support all valid statuses', () => {
-      const validStatuses = ['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED'];
-      
-      validStatuses.forEach((status) => {
-        expect(['PENDING', 'CONFIRMED', 'SHIPPING', 'DELIVERED', 'CANCELLED']).toContain(status);
-      });
-    });
+    expect(response.status).toBe(200);
+    expect(response.body.data.id).toBe(1);
   });
 
-  describe('DELETE /admin/orders/:id', () => {
-    it('should delete order successfully', async () => {
-      prismaMock.order.findUnique.mockResolvedValue(mockOrders[0]);
-      prismaMock.order.delete.mockResolvedValue(mockOrders[0]);
+  it('hides another user order', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({ ...mockOrder, userId: 9 });
 
-      const response = {
-        status: 200,
-        body: { message: 'Order deleted successfully' },
-      };
+    const response = await request(app).get('/api/orders/1').set(auth);
 
-      expect(response.status).toBe(200);
-    });
-
-    it('should return 404 for non-existent order', async () => {
-      prismaMock.order.findUnique.mockResolvedValue(null);
-
-      const response = {
-        status: 404,
-        body: { message: 'Order not found' },
-      };
-
-      expect(response.status).toBe(404);
-    });
+    expect(response.status).toBe(403);
   });
 
-  describe('GET /orders (User Orders)', () => {
-    it('should return orders for authenticated user', async () => {
-      const userOrders = mockOrders.filter((o: any) => o.userId === mockUser.id);
-      prismaMock.order.findMany.mockResolvedValue(userOrders);
+  it('lets an admin read another user order', async () => {
+    prismaMock.order.findUnique.mockResolvedValue({ ...mockOrder, userId: 9 });
 
-      const response = {
-        status: 200,
-        body: { orders: userOrders },
-      };
+    const response = await request(app)
+      .get('/api/orders/1')
+      .set('Authorization', `Bearer ${adminToken()}`);
 
-      expect(response.status).toBe(200);
-    });
-
-    it('should return 401 for unauthenticated requests', async () => {
-      const response = {
-        status: 401,
-        body: { message: 'Unauthorized' },
-      };
-
-      expect(response.status).toBe(401);
-    });
-
-    it('should only return orders belonging to user', async () => {
-      const userOrders = mockOrders.filter((o: any) => o.userId === 1);
-      prismaMock.order.findMany.mockResolvedValue(userOrders);
-
-      const response = {
-        status: 200,
-        body: { orders: userOrders },
-      };
-
-      expect(response.body.orders.every((o: any) => o.userId === 1)).toBe(true);
-    });
+    expect(response.status).toBe(200);
   });
 
-  describe('POST /orders (Create Order)', () => {
-    it('should create new order from cart', async () => {
-      const newOrder = {
-        id: 3,
-        userId: mockUser.id,
-        total: 25990000,
-        status: 'PENDING',
-        receiverName: 'Test User',
-        receiverPhone: '0123456789',
-        receiverAddress: '123 Test St',
-        createdAt: new Date(),
-      };
-      prismaMock.order.create.mockResolvedValue(newOrder);
+  it('returns 404 for a missing order', async () => {
+    prismaMock.order.findUnique.mockResolvedValue(null);
 
-      const response = {
-        status: 201,
-        body: {
-          message: 'Order created successfully',
-          order: newOrder,
-        },
-      };
+    const response = await request(app).get('/api/orders/9').set(auth);
 
-      expect(response.status).toBe(201);
-      expect(response.body.order.status).toBe('PENDING');
-    });
-
-    it('should return 400 when cart is empty', async () => {
-      const response = {
-        status: 400,
-        body: { message: 'Cart is empty' },
-      };
-
-      expect(response.status).toBe(400);
-    });
-
-    it('should return 400 when shipping info is missing', async () => {
-      const response = {
-        status: 400,
-        body: { message: 'Shipping information required' },
-      };
-
-      expect(response.status).toBe(400);
-    });
-
-    it('should clear cart after order creation', async () => {
-      prismaMock.cartDetail.deleteMany.mockResolvedValue({ count: 2 });
-
-      const deletedItems = await prismaMock.cartDetail.deleteMany({
-        where: { cart: { userId: mockUser.id } },
-      });
-
-      expect(deletedItems.count).toBe(2);
-    });
-
-    it('should update product quantities after order', async () => {
-      prismaMock.product.update.mockResolvedValue({
-        id: 1,
-        quantity: 8,
-        sold: 2,
-      } as any);
-
-      const updatedProduct = await prismaMock.product.update({
-        where: { id: 1 },
-        data: {
-          quantity: { decrement: 2 },
-          sold: { increment: 2 },
-        },
-      });
-
-      expect(updatedProduct.quantity).toBe(8);
-      expect(updatedProduct.sold).toBe(2);
-    });
+    expect(response.status).toBe(404);
   });
 
-  describe('PUT /orders/:id/cancel', () => {
-    it('should cancel pending order', async () => {
-      const pendingOrder = mockOrders.find((o: any) => o.status === 'PENDING');
-      const cancelledOrder = { ...pendingOrder, status: 'CANCELLED' };
-      prismaMock.order.findUnique.mockResolvedValue(pendingOrder);
-      prismaMock.order.update.mockResolvedValue(cancelledOrder);
+  it('returns 400 for a non-numeric order id', async () => {
+    const response = await request(app).get('/api/orders/abc').set(auth);
 
-      const response = {
-        status: 200,
-        body: {
-          message: 'Order cancelled successfully',
-          order: cancelledOrder,
-        },
-      };
+    expect(response.status).toBe(400);
+  });
 
-      expect(response.status).toBe(200);
-      expect(response.body.order.status).toBe('CANCELLED');
+  it('rejects a place-order body without a receiver', async () => {
+    const response = await request(app).post('/api/orders').set(auth).send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  it('places an order from the current cart', async () => {
+    prismaMock.cart.findUnique.mockResolvedValue({
+      id: 1,
+      userId: 1,
+      cartDetails: [{ productId: 10, quantity: 1, price: 100 }],
+    });
+    prismaMock.product.findUnique.mockResolvedValue({
+      id: 10,
+      name: 'Laptop',
+      quantity: 5,
+      sold: '1',
+    });
+    prismaMock.order.create.mockResolvedValue({ id: 9 });
+    prismaMock.product.update.mockResolvedValue({});
+    prismaMock.cartDetail.deleteMany.mockResolvedValue({ count: 1 });
+    prismaMock.cart.delete.mockResolvedValue({});
+
+    const response = await request(app).post('/api/orders').set(auth).send({
+      receiverName: 'An',
+      receiverAddress: 'HCM',
+      receiverPhone: '0900000000',
     });
 
-    it('should return 400 when order is already shipped', async () => {
-      const shippedOrder = { ...mockOrders[0], status: 'SHIPPING' };
-      prismaMock.order.findUnique.mockResolvedValue(shippedOrder);
+    expect(response.status).toBe(201);
+    expect(response.body.data).toMatchObject({
+      paymentMethod: 'COD',
+      paymentStatus: 'UNPAID',
+      status: 'PENDING',
+    });
+    expect(prismaMock.order.create).toHaveBeenCalled();
+  });
 
-      const response = {
-        status: 400,
-        body: { message: 'Cannot cancel order that is already shipping' },
-      };
+  it('returns 400 when the user has no cart', async () => {
+    prismaMock.cart.findUnique.mockResolvedValue(null);
 
-      expect(response.status).toBe(400);
+    const response = await request(app).post('/api/orders').set(auth).send({
+      receiverName: 'An',
+      receiverAddress: 'HCM',
+      receiverPhone: '0900000000',
     });
 
-    it('should return 403 when user is not order owner', async () => {
-      const response = {
-        status: 403,
-        body: { message: 'You do not have permission to cancel this order' },
-      };
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/Cart not found/);
+  });
 
-      expect(response.status).toBe(403);
-    });
+  it('lets an admin list orders and blocks a normal user', async () => {
+    prismaMock.order.findMany.mockResolvedValue(mockOrders);
+    prismaMock.order.count.mockResolvedValue(2);
 
-    it('should restore product quantities on cancellation', async () => {
-      prismaMock.product.update.mockResolvedValue({
-        id: 1,
-        quantity: 10,
-        sold: 0,
-      } as any);
+    const forbidden = await request(app)
+      .get('/api/admin/orders')
+      .set(auth);
+    const allowed = await request(app)
+      .get('/api/admin/orders')
+      .set('Authorization', `Bearer ${adminToken()}`);
 
-      const restoredProduct = await prismaMock.product.update({
-        where: { id: 1 },
-        data: {
-          quantity: { increment: 2 },
-          sold: { decrement: 2 },
-        },
-      });
-
-      expect(restoredProduct.quantity).toBe(10);
-      expect(restoredProduct.sold).toBe(0);
-    });
+    expect(forbidden.status).toBe(403);
+    expect(allowed.status).toBe(200);
+    expect(allowed.body.data).toHaveLength(2);
+    expect(allowed.body.pagination.totalPages).toBe(1);
   });
 });

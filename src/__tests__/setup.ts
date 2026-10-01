@@ -1,3 +1,5 @@
+process.env.SESSION_SECRET = process.env.SESSION_SECRET || 'test-secret-not-for-prod';
+
 import { vi } from 'vitest';
 
 // Mock Prisma Client
@@ -35,6 +37,7 @@ export const prismaMock = {
     findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    upsert: vi.fn(),
     delete: vi.fn(),
     deleteMany: vi.fn(),
     count: vi.fn(),
@@ -46,6 +49,7 @@ export const prismaMock = {
     findFirst: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
+    upsert: vi.fn(),
     delete: vi.fn(),
     deleteMany: vi.fn(),
     count: vi.fn(),

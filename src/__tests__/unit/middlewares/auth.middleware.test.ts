@@ -97,7 +97,7 @@ describe('Auth Middleware (Web isAdmin)', () => {
 
     isAdmin(mockReq, mockRes, mockNext);
 
-    expect(mockRes.redirect).toHaveBeenCalledWith('/status/403.ejs');
+    expect(mockRes.redirect).toHaveBeenCalledWith('/status/403');
     expect(mockNext).not.toHaveBeenCalled();
   });
 
