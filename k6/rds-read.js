@@ -48,28 +48,12 @@ export function setup() {
   return { ids };
 }
 
-export default function (data) {
+export default function () {
   const stage = stageOf(exec.instance.vusActive);
-  const roll = Math.random();
-  let res;
-  if (roll < 0.5) {
-    const page = 1 + Math.floor(Math.random() * 5);
-    res = http.get(`${base}/api/products?page=${page}&pageSize=8`, {
-      tags: { stage, name: 'list' },
-      timeout: '15s',
-    });
-  } else if (roll < 0.8) {
-    res = http.get(`${base}/api/products?factory=ASUS&target=GAMING&pageSize=8`, {
-      tags: { stage, name: 'filter' },
-      timeout: '15s',
-    });
-  } else {
-    const id = data.ids[Math.floor(Math.random() * data.ids.length)];
-    res = http.get(`${base}/api/products/${id}`, {
-      tags: { stage, name: 'detail' },
-      timeout: '15s',
-    });
-  }
+  const res = http.get(`${base}/api/products?sort=rand&pageSize=10`, {
+    tags: { stage, name: 'rand' },
+    timeout: '15s',
+  });
 
   check(res, {
     'select ok': (r) => r.status === 200,

@@ -23,8 +23,7 @@ export const options = {
 };
 
 export default function () {
-  const page = 1 + Math.floor(Math.random() * 5);
-  const res = http.get(`${base}/api/products?page=${page}&pageSize=8`, {
+  const res = http.get(`${base}/api/products?sort=rand&pageSize=10`, {
     tags: { name: 'spike' },
     timeout: '15s',
   });

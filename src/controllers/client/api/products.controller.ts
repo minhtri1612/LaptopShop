@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { Prisma } from "@prisma/client";
+import { prisma } from "config/client";
 import { getProductById } from "services/client/item.service";
 import {
     productFilterService,
@@ -14,6 +16,18 @@ const getProductsAPI = async (req: Request, res: Response) => {
     const target = req.query.target ? String(req.query.target) : undefined;
     const price = req.query.price ? String(req.query.price) : undefined;
     const sort = req.query.sort ? String(req.query.sort) : undefined;
+
+    if (sort === "rand") {
+        const limit = Math.min(pageSize, 20);
+        const products = await prisma.$queryRaw(
+            Prisma.sql`SELECT * FROM products ORDER BY RAND() LIMIT ${limit}`
+        );
+        return res.status(200).json({
+            message: "Products retrieved successfully",
+            data: products,
+            pagination: { page: 1, pageSize: limit, totalItems: limit, totalPages: 1 },
+        });
+    }
 
     const [products, totalItems] = await Promise.all([
         productFilterService(page, pageSize, factory, target, price, sort),
