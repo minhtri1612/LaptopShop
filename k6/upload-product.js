@@ -22,11 +22,11 @@ const base = __ENV.BASE_URL || 'http://laptopshop-prod-alb-179228617.ap-southeas
 export default function () {
   if (__ITER === 0) {
     const login = http.post(`${base}/login`, {
-      username: __ENV.USERNAME || 'hoidanit@gmail.com',
-      password: __ENV.PASSWORD || '123456',
+      username: __ENV.K6_USERNAME || 'hoidanit@gmail.com',
+      password: __ENV.K6_PASSWORD || '123456',
     }, { redirects: 0 });
 
-    const location = login.headers.Location || login.headers.location || '';
+    const location = String(login.headers.Location || login.headers.location || '');
     check(login, {
       'login accepted': (r) => r.status === 302 && location.includes('success-redirect'),
     });
