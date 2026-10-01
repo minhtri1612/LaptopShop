@@ -203,11 +203,13 @@ export const uploadMulterFile = async (
       ContentType: file.mimetype,
     });
 
+    const started = performance.now();
     await s3Client.send(command);
+    const durationMs = (performance.now() - started).toFixed(2);
 
     const url = getPublicUrl(key);
 
-    console.log(`[S3] Multer upload success: ${key}`);
+    console.log(`[PERF] Uploaded ${key} (${file.size} bytes) to S3 in ${durationMs} ms`);
 
     return {
       public_id: key,
